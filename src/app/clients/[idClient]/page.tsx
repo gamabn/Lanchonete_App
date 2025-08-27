@@ -1,0 +1,323 @@
+"use client"
+import { useEffect, useState } from "react"
+import {  ShoppingCart, MessageCircleMore} from "lucide-react"
+import { supabase } from "@/app/lib/supabase"
+import { toast } from "react-toastify"
+import { MdDeliveryDining  } from "react-icons/md"
+import { useParams } from "next/navigation"
+import { FaInstagram, FaFacebook, FaTwitter } from "react-icons/fa";
+import Link from "next/link"
+import { Product, LanchoneteProfile } from "@/app/models/interface"
+import { formatReal } from "@/app/money"
+import { FiLoader } from "react-icons/fi"
+import api from "@/app/util/api"
+import { io } from 'socket.io-client'
+
+interface Message {
+  id: string;
+  chat_id: string;
+  sender_type: "customer" | "restaurant";
+  sender_id: string;
+  message: string;
+  created_at: string;
+}
+
+const socket = io("http://localhost:3333");
+
+export default function Client(){ 
+    const param = useParams()
+    const idClient = param.idClient as string
+    const [loading, setLoading] = useState<boolean>(true)
+    const [produtos,setProdutos] = useState<Product[]>()
+    const [carregar, setCarregar] = useState<boolean>(false)
+    const [item,setItem] = useState<Product[]>([])   
+    const [chatId, setChatId] = useState<string | null>(null);
+    const [messages, setMessages] = useState<Message[]>([]);
+    const [store,setStore] = useState<LanchoneteProfile>({
+      id: '',
+      name: '',
+      email: '',
+      phone: '',
+      city: '',
+      neighborhood: '',
+      street: '',
+      number: '',
+      open: false,
+      image_url: '',
+    })
+   const [isOpen, setIsOpen] = useState<boolean>(); 
+
+  async function loadChat(order_id: string) {
+    console.log("Order ID:", order_id);
+    const cleanOrderId = order_id.replace(/^"|"$/g, "");
+    console.log("Order ID limpo:", cleanOrderId);
+    console.log('Chat id', chatId)
+
+    try {
+      const res = await api.get(`/chat/${cleanOrderId}`); // sua rota GetChatService
+      console.log("Chat:", res.data);
+      if (res.data?.chat_id) {
+        setChatId(res.data.chat_id);
+       
+      }
+    } catch (err) {
+      console.error("Erro ao carregar chat:", err);
+    }
+  }
+
+  async function getStore(){
+    if(idClient){
+      const res = await fetch(`/api/store/${idClient}`)
+      const data = await res.json()  
+       console.log('loja do cliente',data)
+     setStore(data)
+     setIsOpen(data.status)
+    }
+  }
+
+  async function getProducts(){
+    if(!idClient)return;
+    const res = await fetch(`/api/products/${idClient}`)
+    const data = await res.json()
+    console.log('Produtos da loja', data)
+    setProdutos(data)
+  }
+
+    useEffect(()=>{
+        socket.on("statusUpdated",(data)=>{
+             console.log("Status da loja (evento):", data.status); // ✅ mostra o valor real
+          setIsOpen(data.status)
+          
+        })
+  
+           return () => {
+        socket.off("statusUpdated");
+      };
+      },[])
+
+    useEffect(() => {
+        const order = localStorage.getItem("order");
+      console.log("Order bruto:", order);
+
+      if (order) {
+        loadChat(order); // order já é o order_id
+        setLoading(false)
+      } else {
+        console.error("❌ Nenhum order encontrado no localStorage");
+        setLoading(false)
+      }
+
+     
+          const itemAdicionado = async () =>{
+
+              const produtoAdicionado = localStorage.getItem('product')
+
+              console.log('Produto adicionado', produtoAdicionado)
+
+              if(!produtoAdicionado) return null
+
+              const produto = JSON.parse(produtoAdicionado)
+
+             return setItem(produto)
+             
+             }
+            //Promise.all([getStore(), getProduct(), itemAdicionado])
+            if (idClient) {
+            getStore(); // se existir
+            getProducts();
+            itemAdicionado();
+            
+            
+           // GetOpen();
+          }
+      setLoading(false)
+     
+    // Cleanup na desmontagem
+    
+        
+    }, [idClient])
+
+   
+    
+     useEffect(() => {
+      if (!chatId) return;
+       async function loadMessages(chat_id: string) {
+        try {
+          const res = await api.get(`/message/${chat_id}`);
+          setMessages(res.data);
+        } catch (err) {
+          console.error("Erro ao carregar mensagens:", err);
+        }
+      }
+      loadMessages(chatId)
+      }, [chatId]);
+
+  //async function GetOpen(){
+   //   const {data, error} = await supabase
+   //   .from('restaurants')
+   //   .select('open')
+     // .eq('id', idClient)
+
+    //  if(error){
+    //    console.log(error)
+    //  }
+    //  if(!data){
+    //    return;
+    //  }
+    //  setIsOpen(data[0].open)
+    // }
+
+    if(loading){
+      return (
+        <div className="flex flex-col items-center justify-center h-screen w-full">
+          <h1 className="text-2xl font-bold text-center p-3">Carregando...</h1>
+            <FiLoader className="text-2xl text-center text-green-500 animate-spin"/>
+        </div>
+      )
+    }
+  
+  async function handleSales(product: Product){ 
+     setCarregar(true)
+     console.log('Produto selecionado', product)
+
+   let itemProduct: Product[] = []
+
+    const produtoAdicionado =  await localStorage.getItem('product')
+
+     if(produtoAdicionado ){
+
+      const produtoSalvo = JSON.parse(produtoAdicionado)
+
+     if (Array.isArray(produtoSalvo)) {
+      const jaAdicionado = produtoSalvo.some((p: Product) => p.id === product.id);
+      if (jaAdicionado) {
+        toast.info('Já está no carrinho');
+        setCarregar(false);
+        return;
+      }
+      itemProduct = [...produtoSalvo]
+   
+      }
+   }
+    itemProduct.push(product)
+
+    setItem(itemProduct)
+
+    await localStorage.setItem('product', JSON.stringify(itemProduct))
+  
+    toast.success('Produto adicionado ao carrinho')
+   setCarregar(false)
+    
+  }
+ const chatMessage = messages.filter(item => item.sender_type === 'restaurant')
+ console.log('chatMessage',chatMessage)
+  
+    return(
+        <div className="h-full w-full flex flex-col">
+           <header className="h-[150px]  relative flex items-center bg-[url('/LanchesFundo.jpg')] bg-cover bg-no-repeat bg-center justify-center border-b">
+            
+             <div className="flex flex-col absolute  top-[115px]  z-100">
+                <img 
+                  src={store?.image_url}
+                  alt="logo" 
+                  className="h-20 w-20 rounded-full"/> 
+             </div>
+           <div className="absolute top-5 bg-gray-700/85 rounded-full w-[40px] h-[40px] flex items-center justify-center  right-3">
+           <Link href={`/clients/${idClient}/pedidos`} className="">
+                 <ShoppingCart size={25} color="#00ff00" className=""/>
+           </Link>
+           {item?.length > 0 && (
+               <div className="absolute top-8 rounded-full bg-blue-400 h-5 w-5 flex items-center justify-center text-white">
+                <p className="p-1">{item?.length}</p> 
+           </div>
+           )}
+          
+          </div>
+           </header>
+
+       
+
+             <div className=" flex flex-col pt-10 bg-amber-50  rounded-t-xl h-screen">
+
+              {chatId && isOpen  && (
+                <div className=" flex items-center justify-center ">
+                     <Link
+                      className="flex items-center justify-center p-2 rounded-lg bg-amber-200 text-blue-600 mt-3 cursor-pointer"
+                      href={`/clients/${idClient}/pedidos/component/chatClient`}>
+                        {chatMessage.length > 0 ?(
+                          <span className="flex items-center justify-center">Voce tem <p className="font-bold px-2 text-red-500"> {chatMessage.length}</p> mensagem <MessageCircleMore size={30}/></span> 
+                        ):(
+                           <span className="flex items-center justify-center">envie mensagem para a lanchonete <MessageCircleMore size={30}/></span> 
+                        )}
+                   
+                  </Link>
+                </div>
+               
+              )}
+              
+                 
+               <h1 className="text-2xl font-bold text-center p-3">
+               </h1>
+               
+                <div className="flex flex-col gap-3  mt-3  justify-center items-center">
+                   <h1>{store?.name}</h1>
+                    <div className="flex items-start justify-items-start">
+                     
+                         <p className="w-full items-center flex"> Pedido Mínimo R$ 10  : <MdDeliveryDining size={30}/> -
+                        20-30 min • Grátis</p>
+                    
+                    </div>
+                    <div>
+                       <p>{store.street}, {store.neighborhood}, {store.city}, {store.number}</p>
+                    </div>
+                    <div className="flex items-center gap-2 justify-center">
+                        
+                        <p>{isOpen ? 'Aberto' : 'Fechado'}</p>
+                        <p className={`h-4 w-4 ${isOpen ? 'bg-green-500' : 'bg-red-500'} bg-green-500 rounded-full flex items-center justify-center animate-pulse`}></p>                       
+                    </div>
+                    {isOpen ?(
+                      <div>
+                      {produtos &&(
+                      <div className="flex flex-wrap gap-3">
+                          {produtos.map((product, index)=>(
+                              <div 
+                              key={product.id}
+                              className="flex gap-4 mt-2 p-3 max-sm:flex-col">
+                                <div className="flex">
+                                    <img src={product.image_url} alt="produtos"
+                                    className="h-[200px] w-[200px]" />
+                                    <div className="flex flex-col p-3">
+                                        <p>{product.name}</p>
+                                        <p>{product.description}</p>
+                                        <p>{formatReal(product.price)}</p>
+                                        <button
+                                      disabled={carregar}
+                                        key={product.id}
+                                        onClick={() => handleSales(product)}
+                                        className="h-11 w-full p-2 bg-green-500 mt-3 rounded-lg text-white">
+                                      {carregar ? 'Carregando...' : 'Comprar'}</button>
+                                    </div>
+                                  
+                                </div>
+                            
+                                </div>
+                          ))}
+                      </div>
+                    
+                  )}
+                      </div>
+                    ):(
+                      <div>
+                        <h2 className="text-2xl font-bold text-center p-3">
+                          Esta loja está fechada no momento.
+                        </h2>
+                      </div>
+                    )}
+                 
+                  
+                  
+                </div>
+             </div>
+        </div>
+    )
+} 
