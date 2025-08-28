@@ -23,11 +23,20 @@ export default async function Financas(){
     });
     const data2 = res.data;
 
+     const dados = await api.get('/order_item', {
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+    });
+    const data3 = dados.data;
+    
+
     console.log('Resposta da outra api',data2)
     console.log('Resposta da api',data)   
+    console.log('Resposta da api para dados',dados) 
    
   return (
-    <FinancasDahboard data={data} data2={data2}/>
+    <FinancasDahboard data={data} data2={data2} data3={data3}/>
   )
 }
 

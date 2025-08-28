@@ -34,3 +34,31 @@ export interface Message {
   message: string;
   created_at: string;
 }
+
+export interface VendasProps {
+  order_id: string;
+  status: string;
+  total_price: number;
+  created_at: string;
+   payment_method: string;
+  change_for: number;
+ 
+  customer: {
+    id: string;
+    name: string;
+    phone: string;
+    city: string;
+    street: string;
+    number: string;
+    neighborhood: string;
+    complement?: string;
+  };
+
+  items: {
+    id: string; // id do order_item
+    product_id: string;
+    product_name: string;
+    quantity: number;
+    item_price: number;
+  }[];
+}

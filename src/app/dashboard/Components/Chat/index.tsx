@@ -154,8 +154,10 @@ export function Chat({ chat }: { chat: Chat[] }) {
                         : "bg-gray-200 text-black self-start mr-auto"
                     }`}
                   >
+                   
                     {msg.message}
                     <p className="text-xs text-gray-600 mt-1">
+                      <span className="text-shadow-gray-600 text-sm font-extralight px-2">{msg.name}</span>
                       {new Date(msg.created_at).toLocaleTimeString()}
                     </p>
                   </div>

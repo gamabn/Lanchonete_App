@@ -3,6 +3,10 @@ import { createContext, ReactNode, useState, useEffect} from "react"
 import api from "../util/api"; // Sua instância do axios/fetch
 import { LanchoneteProfile } from "../models/interface"
 import { Message } from "../models/interface";
+import { ModalItem } from "../components/ModalItem";
+import { VendasProps } from "../models/interface";
+import { set } from "zod";
+
 
 // Criamos um tipo estendido para o estado interno, que inclui o order_id
 // para facilitar a vinculação no frontend.
@@ -29,6 +33,11 @@ interface ModalProps {
    chatMessage: (idChat: string) => void;
    ChatId: (id: string) => void;
    messages: MessageWithOrder[];
+   visible: Boolean;
+   setVisible: React.Dispatch<React.SetStateAction<Boolean>>
+   handleModalVisible: () => void; 
+   sales: VendasProps[];
+   handleSales: (dados: VendasProps[]) => void; 
 }
 interface LanchoneteProps {
   name: string;
@@ -49,6 +58,10 @@ export function ContextProvider({children}: {children: ReactNode}){
    const [lanchoneteProfile, setLanchoneteProfile] = useState<LanchoneteProfile | null>(null);
    const [loadingAuth, setLoadingAuth] = useState(true); // Começa true para mostrar loading inicial
    const [messages, setMessages] = useState<MessageWithOrder[]>([])
+   const [visible, setVisible] = useState<Boolean>(false);
+   const [sales, setSales] = useState<VendasProps[]>([])
+
+
 
     useEffect(() => {
       // Função para buscar os dados do usuário quando o App carrega
@@ -143,8 +156,18 @@ export function ContextProvider({children}: {children: ReactNode}){
       }
     }
 
+    function handleModalVisible(){
+      setVisible(!visible)
+    }
+
+    function handleSales(dados: VendasProps[]){
+      console.log('dados do Contexto',dados)
+     setSales(dados)
+    }
+
     return(
-        <Context.Provider value={{ user, lanchoneteProfile, loadingAuth, logout, chatMessage, ChatId, messages }}>
+        <Context.Provider value={{ user,sales, handleSales, lanchoneteProfile, loadingAuth,visible, setVisible, logout, chatMessage, ChatId, messages, handleModalVisible }}>
+          {visible && <ModalItem/>}
             {children}
         </Context.Provider>
     )
