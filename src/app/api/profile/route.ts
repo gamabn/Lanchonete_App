@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import api from "@/app/util/api";
 
 export async function GET(request: NextRequest) {
-  const cookieStore = await cookies();
+  const cookieStore =await cookies();
   const token =  cookieStore.get("token")?.value;
 
   if (!token) {
@@ -21,8 +21,8 @@ export async function GET(request: NextRequest) {
     // 2. Retorna os dados do usuário obtidos do backend para o cliente
     return NextResponse.json(response.data);
   } catch (error) {
-    console.error("Erro na rota /api/profile:", error);
-    return NextResponse.json({ message: "Falha ao buscar perfil do usuário" }, { status: 500 });
+      const errorMessage = error instanceof Error ? error.message : 'Erro interno do servidor.';
+        return NextResponse.json({ error: 'Falha ao cancelar o agendamento.', details: errorMessage }, { status: 500 });
   }
 }
 

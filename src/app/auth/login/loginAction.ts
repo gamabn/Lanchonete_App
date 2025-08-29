@@ -29,7 +29,7 @@ export async function handleLogin(prevState: ActionState, formData: FormData): P
       value: response.data.token,
       maxAge: maxAgeSeconds,
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: process.env.NEXT_PUBLIC_API_RENDER === "production",
       sameSite: "strict",
       path: "/",
     });

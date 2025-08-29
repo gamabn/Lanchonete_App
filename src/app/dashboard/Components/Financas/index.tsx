@@ -149,7 +149,7 @@ console.log('data igual a lebel :', dados)
               )
               :(
                 <div>
-                <h2>Noa existe vendas</h2>
+                <h2>Não existe vendas</h2>
                 </div>
               )}
 

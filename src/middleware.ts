@@ -11,12 +11,12 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+  const apiUrl = process.env.NEXT_PUBLIC_API_RENDER;
   console.log(`[Middleware] URL da API: ${apiUrl}`);
 
   if (!apiUrl) {
     console.error(
-      "[Middleware] ERRO GRAVE: A variável de ambiente NEXT_PUBLIC_API_URL não está configurada."
+      "[Middleware] ERRO GRAVE: A variável de ambiente API_URL não está configurada."
     );
     // Mesmo se falhar, vamos tentar deletar o cookie e redirecionar
     const response = NextResponse.redirect(new URL("/", request.url));
@@ -25,8 +25,10 @@ export async function middleware(request: NextRequest) {
   }
 
   try {
-    console.log(`[Middleware] Validando token com a API em: ${apiUrl}/me`);
-    const res = await fetch(`${apiUrl}/me`, {
+    // Usar o construtor URL para evitar problemas com barras duplas
+    const validationUrl = new URL("/me", apiUrl).toString();
+    console.log(`[Middleware] Validando token com a API em: ${validationUrl}`);
+    const res = await fetch(validationUrl, {
       headers: { Authorization: `Bearer ${token}` },
       cache: "no-store",
     });

@@ -72,7 +72,7 @@ function formatSales(pedido: VendasProps, lanchoneteProfile: LanchoneteProfile |
                   receiptText += `Forma de Pagamento: ${pedido.payment_method}\n`;
                 }
                 if (pedido.change_for > 0) {
-                  receiptText += `Troco: ${formatReal(pedido.change_for)}\n`;
+                  receiptText += `(Troco para...): ${formatReal(pedido.change_for)}\n`;
                 }
 
                  receiptText += "\nObrigado pela preferência!\n";

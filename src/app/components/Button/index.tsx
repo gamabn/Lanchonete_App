@@ -2,13 +2,13 @@
 "use client";
 
 import { useState } from "react";
-import { getGraficData } from "../actions/grafic";
+//import { getGraficData } from "../actions/grafic";
 
 export default function GraficButton() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function handleClick() {
+ {/*} async function handleClick() {
     setLoading(true);
     setMessage("");
     const res = await getGraficData();
@@ -19,12 +19,12 @@ export default function GraficButton() {
     } else {
       setMessage(`❌ ${res.error}`);
     }
-  }
+  }*/}
 
   return (
     <div>
       <button
-        onClick={handleClick}
+        //onClick={handleClick}
         disabled={loading}
         className="bg-blue-500 px-4 py-2 rounded text-white"
       >

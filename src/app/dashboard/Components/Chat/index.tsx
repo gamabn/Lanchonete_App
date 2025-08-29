@@ -6,7 +6,9 @@ import { SendHorizontal } from "lucide-react";
 import { Context } from "@/app/Context";
 import { io } from "socket.io-client";
 
-const socket = io("http://localhost:3333");
+const socket = io(process.env.NEXT_PUBLIC_API_RENDER!, {
+  transports: ["websocket"],
+});
 
 interface Chat {
   chat_id: string;

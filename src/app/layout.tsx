@@ -8,7 +8,7 @@ import { ToastContainer } from "react-toastify";
 
 export const metadata: Metadata = {
   title: "Sistema de Lanchonete",
-  description: "Sistema lanchonet de Itambe Bahia",
+  description: "Sistema lanchonete",
 };
 
 export default function RootLayout({

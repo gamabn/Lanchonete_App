@@ -1,5 +1,5 @@
 "use client"
-import { useContext, useState } from "react"
+import { useContext, useState, useEffect } from "react"
 import { Context } from "@/app/Context"
 import { UserRound, Mail, MapPinHouse,  Phone} from "lucide-react"
 import { supabase } from "@/app/lib/supabase"
@@ -14,19 +14,32 @@ export default function Profile(){
     const [loading, setLoading] = useState(false)
     const [preView, setPreView] = useState<string | null>(null)
     const [formMessage, setFormMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+    // 1. INICIALIZAÇÃO CORRETA: Use strings vazias para garantir que os inputs sejam sempre "controlados".
     const [lanchonete, setLanchonete] = useState({
-        id: lanchoneteProfile?.id,
-        name: lanchoneteProfile?.name,
-        phone: lanchoneteProfile?.phone,
-        email: lanchoneteProfile?.email,
-        city: lanchoneteProfile?.city,
-        neighborhood: lanchoneteProfile?.neighborhood,
-        street: lanchoneteProfile?.street,
-        number: lanchoneteProfile?.number,
-        image_url: lanchoneteProfile?.image_url,
+        id: '', name: '', phone: '', email: '', city: '',
+        neighborhood: '', street: '', number: '', image_url: '',
     })
 
+    // 2. SINCRONIZAÇÃO NECESSÁRIA: Este useEffect preenche o formulário quando os dados do perfil
+    // chegam do contexto. Sem ele, o formulário ficaria vazio.
+    useEffect(() => {
+        if (lanchoneteProfile) {
+            // Usamos um updater de função para mesclar o estado anterior com os novos dados do perfil.
+            // Isso é mais seguro e evita a perda de campos se as estruturas forem diferentes.
+            setLanchonete(prevState => ({ ...prevState, ...lanchoneteProfile }));
+        }
+    }, [lanchoneteProfile]);
 
+    // Limpa a URL do objeto para evitar vazamentos de memória
+    useEffect(() => {
+        // A função de limpeza será chamada quando o componente for desmontado
+        // ou antes que o efeito seja executado novamente.
+        return () => {
+            if (preView) {
+                URL.revokeObjectURL(preView);
+            }
+        };
+    }, [preView]);
 
   async function handleEditProfile() {
     setLoading(true);
@@ -92,11 +105,12 @@ export default function Profile(){
                                 className="hidden"
                                 onChange={(e) =>{
                                     const fileImg = e.target.files?.[0];
-                                    if(fileImg){
-                                        setImage(fileImg)
+                                    // Mova toda a lógica para dentro do 'if'
+                                    if (fileImg) {
+                                        setImage(fileImg);
+                                        const imageUrl = URL.createObjectURL(fileImg);
+                                        setPreView(imageUrl);
                                     }
-                                    const imageUrl = URL.createObjectURL(fileImg);
-                                setPreView(imageUrl)
                                 }} />
                         </label>
                         </div>

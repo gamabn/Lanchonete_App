@@ -8,7 +8,9 @@ import { toast } from "react-toastify";
 import { io } from "socket.io-client";
 import { FiLoader } from "react-icons/fi"
 
-const socket = io("http://localhost:3333");
+const socket = io(process.env.NEXT_PUBLIC_API_RENDER!, {
+  transports: ["websocket"],
+});
 
 
 interface Message {
@@ -144,11 +146,12 @@ export default function Chat() {
       };
 
       socket.on("newMessage", handleNewMessage);
-
+     
       return () => {
         socket.off("newMessage", handleNewMessage);
       };
   }, [chatId]);
+
 
 useEffect(() => {
   if (!chatId) return;

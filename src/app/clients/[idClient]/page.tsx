@@ -12,6 +12,7 @@ import { formatReal } from "@/app/money"
 import { FiLoader } from "react-icons/fi"
 import api from "@/app/util/api"
 import { io } from 'socket.io-client'
+import { Footer } from "./pedidos/component/footer"
 
 interface Message {
   id: string;
@@ -22,15 +23,18 @@ interface Message {
   created_at: string;
 }
 
-const socket = io("http://localhost:3333");
+const socket = io(process.env.NEXT_PUBLIC_API_RENDER!, {
+  transports: ["websocket"],
+});
 
 export default function Client(){ 
     const param = useParams()
     const idClient = param.idClient as string
     const [loading, setLoading] = useState<boolean>(true)
-    const [produtos,setProdutos] = useState<Product[]>()
+    const [produtos,setProdutos] = useState<Product[]>([])
     const [carregar, setCarregar] = useState<boolean>(false)
-    const [item,setItem] = useState<Product[]>([])   
+    const [item,setItem] = useState<Product[]>([])  
+    const [isOpen, setIsOpen] = useState<boolean>(false)
     const [chatId, setChatId] = useState<string | null>(null);
     const [messages, setMessages] = useState<Message[]>([]);
     const [store,setStore] = useState<LanchoneteProfile>({
@@ -42,10 +46,9 @@ export default function Client(){
       neighborhood: '',
       street: '',
       number: '',
-      open: false,
+      status: true,
       image_url: '',
     })
-   const [isOpen, setIsOpen] = useState<boolean>(); 
 
   async function loadChat(order_id: string) {
     console.log("Order ID:", order_id);
@@ -65,76 +68,64 @@ export default function Client(){
     }
   }
 
-  async function getStore(){
-    if(idClient){
-      const res = await fetch(`/api/store/${idClient}`)
-      const data = await res.json()  
-       console.log('loja do cliente',data)
-     setStore(data)
-     setIsOpen(data.status)
-    }
-  }
+ 
 
-  async function getProducts(){
-    if(!idClient)return;
-    const res = await fetch(`/api/products/${idClient}`)
-    const data = await res.json()
-    console.log('Produtos da loja', data)
-    setProdutos(data)
-  }
-
+    // Efeito para ouvir atualizações de status da loja via socket
     useEffect(()=>{
-        socket.on("statusUpdated",(data)=>{
-             console.log("Status da loja (evento):", data.status); // ✅ mostra o valor real
-          setIsOpen(data.status)
-          
-        })
-  
-           return () => {
-        socket.off("statusUpdated");
+      const handleStatusUpdate = (data: { status: boolean }) => {
+        console.log("Status da loja (evento):", data.status);
+        // Atualiza o estado da loja diretamente, em vez de um estado separado
+        //setStore(prevStore => ({ ...prevStore, open: data.status }));
+        setIsOpen(data.status)
+     
       };
-      },[])
 
+      socket.on("statusUpdated", handleStatusUpdate);
+  
+      return () => {
+        socket.off("statusUpdated", handleStatusUpdate);
+      };
+    },[])
+
+    // Efeito para carregar dados iniciais (loja, produtos, carrinho)
     useEffect(() => {
-        const order = localStorage.getItem("order");
-      console.log("Order bruto:", order);
+      async function loadInitialData() {
+        if (!idClient) return;
 
-      if (order) {
-        loadChat(order); // order já é o order_id
-        setLoading(false)
-      } else {
-        console.error("❌ Nenhum order encontrado no localStorage");
-        setLoading(false)
+        setLoading(true);
+        try {
+          // Busca dados da loja e produtos em paralelo
+          const [storeRes, productsRes] = await Promise.all([
+            fetch(`/api/store/${idClient}`),
+            fetch(`/api/products/${idClient}`)
+          ]);
+
+          const storeData = await storeRes.json();
+          const productsData = await productsRes.json();
+
+          setStore(storeData);
+          setProdutos(productsData);
+          setIsOpen(storeData.status)
+
+
+          // Carrega o carrinho do localStorage
+          const cartFromStorage = localStorage.getItem('product');
+          if (cartFromStorage) {
+            setItem(JSON.parse(cartFromStorage));
+          }
+        } catch (error) {
+          console.error("Falha ao carregar dados iniciais:", error);
+          toast.error("Erro ao carregar a página da loja.");
+        } finally {
+          setLoading(false);
+        }
       }
 
-     
-          const itemAdicionado = async () =>{
+      loadInitialData();
 
-              const produtoAdicionado = localStorage.getItem('product')
-
-              console.log('Produto adicionado', produtoAdicionado)
-
-              if(!produtoAdicionado) return null
-
-              const produto = JSON.parse(produtoAdicionado)
-
-             return setItem(produto)
-             
-             }
-            //Promise.all([getStore(), getProduct(), itemAdicionado])
-            if (idClient) {
-            getStore(); // se existir
-            getProducts();
-            itemAdicionado();
-            
-            
-           // GetOpen();
-          }
-      setLoading(false)
-     
-    // Cleanup na desmontagem
-    
-        
+      // Carrega o chat se houver um pedido no localStorage
+        const order = localStorage.getItem("order");
+      if (order) loadChat(order);
     }, [idClient])
 
    
@@ -150,22 +141,9 @@ export default function Client(){
         }
       }
       loadMessages(chatId)
+      
+      
       }, [chatId]);
-
-  //async function GetOpen(){
-   //   const {data, error} = await supabase
-   //   .from('restaurants')
-   //   .select('open')
-     // .eq('id', idClient)
-
-    //  if(error){
-    //    console.log(error)
-    //  }
-    //  if(!data){
-    //    return;
-    //  }
-    //  setIsOpen(data[0].open)
-    // }
 
     if(loading){
       return (
@@ -180,37 +158,25 @@ export default function Client(){
      setCarregar(true)
      console.log('Produto selecionado', product)
 
-   let itemProduct: Product[] = []
+    // Usa o estado 'item' como fonte da verdade, não o localStorage
+    const isAlreadyInCart = item.some((p: Product) => p.id === product.id);
+    if (isAlreadyInCart) {
+      toast.info('Já está no carrinho');
+      setCarregar(false);
+      return;
+    }
 
-    const produtoAdicionado =  await localStorage.getItem('product')
-
-     if(produtoAdicionado ){
-
-      const produtoSalvo = JSON.parse(produtoAdicionado)
-
-     if (Array.isArray(produtoSalvo)) {
-      const jaAdicionado = produtoSalvo.some((p: Product) => p.id === product.id);
-      if (jaAdicionado) {
-        toast.info('Já está no carrinho');
-        setCarregar(false);
-        return;
-      }
-      itemProduct = [...produtoSalvo]
-   
-      }
-   }
-    itemProduct.push(product)
-
-    setItem(itemProduct)
-
-    await localStorage.setItem('product', JSON.stringify(itemProduct))
+    // Atualiza o estado e depois o localStorage
+    const newItemList = [...item, product];
+    setItem(newItemList);
+    localStorage.setItem('product', JSON.stringify(newItemList));
   
     toast.success('Produto adicionado ao carrinho')
    setCarregar(false)
     
   }
  const chatMessage = messages.filter(item => item.sender_type === 'restaurant')
- console.log('chatMessage',chatMessage)
+ //console.log('chatMessage',chatMessage)
   
     return(
         <div className="h-full w-full flex flex-col">
@@ -222,7 +188,7 @@ export default function Client(){
                   alt="logo" 
                   className="h-20 w-20 rounded-full"/> 
              </div>
-           <div className="absolute top-5 bg-gray-700/85 rounded-full w-[40px] h-[40px] flex items-center justify-center  right-3">
+           <div className="absolute top-5 bg-gray-700/85 rounded-full w-[40px] h-[40px] flex items-center justify-center right-3 max-sm:hidden">
            <Link href={`/clients/${idClient}/pedidos`} className="">
                  <ShoppingCart size={25} color="#00ff00" className=""/>
            </Link>
@@ -272,8 +238,8 @@ export default function Client(){
                     </div>
                     <div className="flex items-center gap-2 justify-center">
                         
-                        <p>{isOpen ? 'Aberto' : 'Fechado'}</p>
-                        <p className={`h-4 w-4 ${isOpen ? 'bg-green-500' : 'bg-red-500'} bg-green-500 rounded-full flex items-center justify-center animate-pulse`}></p>                       
+                        <p>{store.open ? 'Aberto' : 'Fechado'}</p>
+                        <p className={`h-4 w-4 ${isOpen ? 'bg-green-500' : 'bg-red-500'} rounded-full flex items-center justify-center animate-pulse`}></p>                       
                     </div>
                     {isOpen ?(
                       <div>
@@ -318,6 +284,10 @@ export default function Client(){
                   
                 </div>
              </div>
+             <div className="fixed bottom-0 w-full md:hidden">
+                <Footer />   
+             </div>
+             
         </div>
     )
 } 
