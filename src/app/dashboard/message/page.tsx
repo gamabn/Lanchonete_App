@@ -5,7 +5,7 @@ export default async function Message(){
 
         const chat = await api.get('/chat')
         if(!chat)return;
-       // console.log('todos os chat',chat.data)
+        console.log('todos os chat',chat.data)
           const allChat = chat.data
     return(
        <Chat chat={allChat}/>

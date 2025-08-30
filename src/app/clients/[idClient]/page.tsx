@@ -51,10 +51,10 @@ export default function Client(){
     })
 
   async function loadChat(order_id: string) {
-    console.log("Order ID:", order_id);
+   // console.log("Order ID:", order_id);
     const cleanOrderId = order_id.replace(/^"|"$/g, "");
-    console.log("Order ID limpo:", cleanOrderId);
-    console.log('Chat id', chatId)
+  //  console.log("Order ID limpo:", cleanOrderId);
+   // console.log('Chat id', chatId)
 
     try {
       const res = await api.get(`/chat/${cleanOrderId}`); // sua rota GetChatService
@@ -156,7 +156,7 @@ export default function Client(){
   
   async function handleSales(product: Product){ 
      setCarregar(true)
-     console.log('Produto selecionado', product)
+     //console.log('Produto selecionado', product)
 
     // Usa o estado 'item' como fonte da verdade, não o localStorage
     const isAlreadyInCart = item.some((p: Product) => p.id === product.id);
@@ -179,10 +179,10 @@ export default function Client(){
  //console.log('chatMessage',chatMessage)
   
     return(
-        <div className="h-full w-full flex flex-col">
-           <header className="h-[150px]  relative flex items-center bg-[url('/LanchesFundo.jpg')] bg-cover bg-no-repeat bg-center justify-center border-b">
+        <div className=" w-full flex flex-col text-black bg-amber-50">
+           <header className="h-[150px]  relative top-0 flex items-center bg-[url('/LanchesFundo.jpg')] bg-cover bg-no-repeat bg-center justify-center border-b">
             
-             <div className="flex flex-col absolute  top-[115px]  z-100">
+             <div className="flex flex-col absolute  top-[115px] z-100">
                 <img 
                   src={store?.image_url}
                   alt="logo" 
@@ -203,7 +203,7 @@ export default function Client(){
 
        
 
-             <div className=" flex flex-col pt-10 bg-amber-50  rounded-t-xl h-screen">
+             <div className=" flex flex-col pt-10 bg-amber-50 overflow-auto w-full rounded-t-xl h-screen">
 
               {chatId && isOpen  && (
                 <div className=" flex items-center justify-center ">
@@ -227,7 +227,7 @@ export default function Client(){
                
                 <div className="flex flex-col gap-3  mt-3  justify-center items-center">
                    <h1>{store?.name}</h1>
-                    <div className="flex items-start justify-items-start">
+                    <div className="flex items-start justify-items-start text-black">
                      
                          <p className="w-full items-center flex"> Pedido Mínimo R$ 10  : <MdDeliveryDining size={30}/> -
                         20-30 min • Grátis</p>
@@ -244,7 +244,7 @@ export default function Client(){
                     {isOpen ?(
                       <div>
                       {produtos &&(
-                      <div className="flex flex-wrap gap-3">
+                      <div className="flex flex-wrap gap-3 mb-6">
                           {produtos.map((product, index)=>(
                               <div 
                               key={product.id}
@@ -256,12 +256,15 @@ export default function Client(){
                                         <p>{product.name}</p>
                                         <p>{product.description}</p>
                                         <p>{formatReal(product.price)}</p>
-                                        <button
-                                      disabled={carregar}
-                                        key={product.id}
-                                        onClick={() => handleSales(product)}
-                                        className="h-11 w-full p-2 bg-green-500 mt-3 rounded-lg text-white">
-                                      {carregar ? 'Carregando...' : 'Comprar'}</button>
+
+                                       <button
+                                        disabled={carregar}
+                                          key={product.id}
+                                          onClick={() => handleSales(product)}
+                                          className="h-11 w-full p-2 bg-green-500 mt-3 rounded-lg text-white">
+                                        {carregar ? 'Carregando...' : 'Comprar'}
+                                      </button>
+
                                     </div>
                                   
                                 </div>
@@ -285,7 +288,7 @@ export default function Client(){
                 </div>
              </div>
              <div className="fixed bottom-0 w-full md:hidden">
-                <Footer />   
+                <Footer  itemProduct={item}/>   
              </div>
              
         </div>

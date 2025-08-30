@@ -34,12 +34,11 @@ export function FormClient({ onSubmitAddress, handleActive, initialData }: FormC
      });
 
   function handleRegister(data: FormData){
-    console.log('endereço do cliente',data)
     onSubmitAddress(data)        
   }
 
     return(
-        <div className= { ` flex-col gap-3 p-3 bg-amber-200/85 text-white rounded-xl `}>
+        <div className= { ` flex-col gap-3 p-3 bg-amber-200 relative z-50 text-white rounded-xl `}>
             <form onSubmit={handleSubmit(handleRegister)} className="flex flex-col gap-3">
                 <h1 className="text-md font-bold text-center text-black">Endereço para entrega</h1>  
                 {initialData?.id &&(

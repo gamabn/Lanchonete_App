@@ -153,7 +153,7 @@ export function Home({ data }: { data: VendasProps[] }) {
 
       <div>
         {dataPending && dataPending.length > 0 ? (
-          <div className="flex flex-wrap gap-4">
+          <div className="flex flex-wrap gap-4 max-sm:flex-col max-sm:justify-center">
             {dataPending.map((pedido) => (
               <div
                 key={pedido.order_id}

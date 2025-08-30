@@ -115,7 +115,7 @@ export default function Car(){
        
     };
      function handresAdress(data: AddressData){
-      console.log('Endereço',data)
+//console.log('Endereço',data)
       setActive(false)
       setAddress(data)
      }
@@ -176,7 +176,7 @@ export default function Car(){
                 complement: address.complemento,
 
               })
-              console.log('resClient',resClient.data)
+            //  console.log('resClient',resClient.data)
               if (!resClient.data) throw new Error("Erro ao atualizar cliente");
 
             } else {
@@ -215,7 +215,7 @@ export default function Car(){
           quantity: count[item.id],
           item_price: item.price,
         }));
-        console.log('orderItems',orderItems)
+       // console.log('orderItems',orderItems)
         const orderItemsResponse = await api.post(`/order_item`, orderItems);
 
         if (!orderItemsResponse.data) {
@@ -251,10 +251,10 @@ export default function Car(){
                                       
 
     return(
-        <div className="bg-amber-50 h-screen">
+        <div className="bg-amber-50 h-screen overflow-auto  text-black">
             <header className="h-[150px] relative flex items-center bg-[url('/LanchesFundo.jpg')] bg-cover bg-no-repeat bg-center justify-center border-b">
                 {store.image_url && store.image_url !== '' && (
-                    <div className="flex flex-col absolute  top-[115px]  z-100">
+                    <div className="flex flex-col absolute  top-[115px]  z-10">
                     <img 
                       src={store?.image_url}
                       alt="logo" 
@@ -265,7 +265,7 @@ export default function Car(){
            </header>
            <div>
             <Link  href={`/clients/${idClient}`}>
-                <p className="flex p-3 items-center">
+                <p className="flex p-3 items-center ">
                   <ArrowLeft size={30} color="#00ff"/>
                    Voltar
                 </p>
@@ -274,13 +274,13 @@ export default function Car(){
            </div>
            
          
-            <div  className={`fixed top-3 right-10 transform transition-all duration-500 ease-in-out
+            <div  className={`fixed top-3 right-10 transform transition-all z-50 duration-500 ease-in-out
               ${active ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'}
             `}>
                  <FormClient onSubmitAddress={handresAdress} handleActive={handleActive} initialData={address} />
             </div>
                        
-          <div className="flex items-center justify-center flex-col w-full gap-3 mt-3 pt-6">
+          <div className="flex items-center justify-center   flex-col w-full gap-3 mt-3 pt-6">
             {car.length > 0 ? (
                 <div className="w-full items-center justify-center flex flex-col">
                   <h1 className="text-2xl mt-10 font-bold text-center p-3">Carrinho</h1>
@@ -288,7 +288,7 @@ export default function Car(){
                     <div className="flex  flex-wrap gap-3">
                         {car.map((item) => (
                             <div className="flex p-3" key={item.id}>
-                                <img src={item.image_url} className="h-[200px] w-[200px] object-cover rounded-md" alt={item.name} />
+                                <img src={item.image_url} className="h-[200px] w-[200px] object-cover mr-2 rounded-md" alt={item.name} />
                                 <div>
                                      <p className="font-semibold">{item.name}</p>
                                      <p>{formatReal(item.price * (count[item.id] || 0))}</p>
@@ -317,7 +317,7 @@ export default function Car(){
                                     </button>
                                    
                                 <h3 className="font-bold text-lg">Entregar para: {address.name}</h3>
-                                <p className="text-gray-600">{address.rua}, {address.numero} - {address.bairro}, {address.cidade}</p>
+                                <p className="text-gray-600 ">{address.rua}, {address.numero} - {address.bairro}, {address.cidade}</p>
                                 <p className="text-gray-600">Telefone: {address.phone}</p>
                                <p>{address.complemento}</p>
                                 <div className="flex items-center gap-3 justify-center mt-4 max-sm:flex-col max-sm:items-center">
