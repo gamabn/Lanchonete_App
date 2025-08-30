@@ -5,10 +5,12 @@ import { FiLoader } from "react-icons/fi";
 import { SendHorizontal } from "lucide-react";
 import { Context } from "@/app/Context";
 import { io } from "socket.io-client";
+import socket from "@/app/components/Socket";
 
-const socket = io(process.env.NEXT_PUBLIC_API_RENDER!, {
-  transports: ["websocket"],
-});
+
+//const socket = io(process.env.NEXT_PUBLIC_API_RENDER!, {
+ // transports: ["websocket"],
+//});
 
 interface Chat {
   chat_id: string;
@@ -62,7 +64,7 @@ export function Chat({ chat }: { chat: Chat[] }) {
   }, [selectedChat]);
 
   // WebSocket para novas mensagens
-  useEffect(() => {
+ {/*} useEffect(() => {
     if (!selectedChat?.chat_id) return;
 
     socket.emit("joinRoom", selectedChat.chat_id);
@@ -81,7 +83,29 @@ export function Chat({ chat }: { chat: Chat[] }) {
   // Scroll automático para última mensagem
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages]);*/}
+
+
+  useEffect(() => {
+  if (!selectedChat?.chat_id) return;
+
+  const chatId = selectedChat.chat_id;
+
+  socket.emit("joinRoom", chatId);
+
+  const handleNewMessage = (msg: Message) => {
+    setMessages((prev) => [...prev, msg]);
+  };
+
+  socket.on("newMessage", handleNewMessage);
+
+  return () => {
+    socket.off("newMessage", handleNewMessage);
+    socket.emit("leaveRoom", chatId); // se você implementar no backend
+  };
+}, [selectedChat?.chat_id]);
+
+
 
   async function sendHandle() {
     if (!selectedChat || !input.trim()) return;
