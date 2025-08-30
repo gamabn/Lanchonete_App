@@ -1,7 +1,6 @@
 "use client"
 import { useState, useEffect } from "react";
 import { toast } from "react-toastify";
-import { supabase } from "@/app/lib/supabase";
 import Link from "next/link";
 import { Loader, ArrowLeft } from "lucide-react";
 import { useParams } from "next/navigation";

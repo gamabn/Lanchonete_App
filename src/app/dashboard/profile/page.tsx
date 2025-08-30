@@ -2,7 +2,6 @@
 import { useContext, useState, useEffect } from "react"
 import { Context } from "@/app/Context"
 import { UserRound, Mail, MapPinHouse,  Phone} from "lucide-react"
-import { supabase } from "@/app/lib/supabase"
 import { toast, ToastContainer } from "react-toastify"
 import { MdFileUpload } from "react-icons/md"
 import api from "@/app/util/api"

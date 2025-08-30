@@ -10,7 +10,6 @@ import { parseRealToCents } from "@/app/components/money";
 import { toast } from "react-toastify";
 import { useContext } from "react";
 import { Context } from "@/app/Context";
-import { supabase } from "@/app/lib/supabase";
 import { id } from "zod/locales";
 
 

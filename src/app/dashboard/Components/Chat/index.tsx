@@ -4,7 +4,6 @@ import { useState, useEffect, useRef, useContext } from "react";
 import { FiLoader } from "react-icons/fi";
 import { SendHorizontal } from "lucide-react";
 import { Context } from "@/app/Context";
-import { io } from "socket.io-client";
 import socket from "@/app/components/Socket";
 
 

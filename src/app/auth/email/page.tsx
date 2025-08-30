@@ -2,7 +2,6 @@
 import { Header } from "@/app/components/header";
 import { useState } from "react";
 import api from "@/app/util/api";
-import { set } from "zod";
 
 export default function ForgetEmail(){
     const [email, setEmail] = useState('')

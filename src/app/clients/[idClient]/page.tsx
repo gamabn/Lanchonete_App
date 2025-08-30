@@ -1,7 +1,6 @@
 "use client"
 import { useEffect, useState } from "react"
 import {  ShoppingCart, MessageCircleMore} from "lucide-react"
-import { supabase } from "@/app/lib/supabase"
 import { toast } from "react-toastify"
 import { MdDeliveryDining  } from "react-icons/md"
 import { useParams } from "next/navigation"
@@ -13,6 +12,7 @@ import { FiLoader } from "react-icons/fi"
 import api from "@/app/util/api"
 import { io } from 'socket.io-client'
 import { Footer } from "./pedidos/component/footer"
+import socket from "@/app/components/Socket"
 
 interface Message {
   id: string;
@@ -23,9 +23,9 @@ interface Message {
   created_at: string;
 }
 
-const socket = io(process.env.NEXT_PUBLIC_API_RENDER!, {
-  transports: ["websocket"],
-});
+//const socket = io(process.env.NEXT_PUBLIC_API_RENDER!, {
+ // transports: ["websocket"],
+//});
 
 export default function Client(){ 
     const param = useParams()

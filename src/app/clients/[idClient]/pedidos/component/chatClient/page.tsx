@@ -7,10 +7,12 @@ import api from "@/app/util/api";
 import { toast } from "react-toastify";
 import { io } from "socket.io-client";
 import { FiLoader } from "react-icons/fi"
+import socket from "@/app/components/Socket";
 
-const socket = io(process.env.NEXT_PUBLIC_API_RENDER!, {
-  transports: ["websocket"],
-});
+
+//const socket = io(process.env.NEXT_PUBLIC_API_RENDER!, {
+//  transports: ["websocket"],
+//});
 
 
 interface Message {

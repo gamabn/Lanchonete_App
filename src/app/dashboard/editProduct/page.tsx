@@ -28,7 +28,7 @@ export default function EditProduct(){
     const [previews, setPreviews] = useState<{ [productId: string]: string }>({});
 
     // URL base para carregar as imagens do seu backend
-    const filesBaseUrl = "http://localhost:3333/files";
+   // const filesBaseUrl = process.env.NEXT_PUBLIC_API_RENDER;
 
      useEffect(() => {
       async function fetchProducts() {

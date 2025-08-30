@@ -8,9 +8,9 @@ import { useContext } from "react";
 import { Context } from "@/app/Context";
 import { io } from 'socket.io-client'
 import api from "@/app/util/api";
+import socket from "@/app/components/Socket";
 
-
-const socket = io("http://localhost:3333");
+//const socket = io(proce);
 
 
 socket.on("connect", () => {
