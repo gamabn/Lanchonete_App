@@ -58,8 +58,7 @@ export function FinancasDahboard({data, data2, data3}: {data: Vendas , data2: Ve
         anchor: 'end',
         align: 'top',
         formatter: (value: number) => {
-          // A função formatReal provavelmente espera o valor em centavos.
-          // Como 'value' já está em Reais, multiplicamos por 100.
+         
           return formatReal(value * 100);
         },
         color: '#4A5568', // Cor do texto (cinza escuro)
@@ -74,14 +73,14 @@ export function FinancasDahboard({data, data2, data3}: {data: Vendas , data2: Ve
   const totalSales = data2.map(item => (parseFloat(item.total_sales)));
   const totalVendas = totalSales.map(item => formatReal(item))
   const sales = totalSales.map(item => item.toFixed(2))
- // console.log('totalSales',totalSales)
+ 
 
   const chartData = {
     labels,
     datasets: [
       {
         label: `Total de vendas: ${totalVendas}`,
-        data: sales, // Convertendo centavos para Reais
+        data: sales, 
         backgroundColor: 'rgba(54, 162, 235, 0.5)',
         borderColor: 'rgb(54, 162, 235)',
         borderWidth: 1,
@@ -100,9 +99,9 @@ export function FinancasDahboard({data, data2, data3}: {data: Vendas , data2: Ve
   const mesAno = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
   return labels.includes(mesAno);
 });
-console.log('data igual a lebel :', dados)
+
     return(
-        <div className="p-6">
+        <div className="p-6 bg-white text-black">
              <h1 className="text-2xl flex gap-2 items-center justify-center font-bold p-3 text-center">Minhas finanças</h1>
 
              <div className="flex flex-wrap items-center justify-center gap-5 mb-8">
@@ -131,10 +130,10 @@ console.log('data igual a lebel :', dados)
                   
                       <button 
                       onClick={() => handleModal(dados)}
-                      className='flex w-full p-2 items-center justify-between gap-2 bg-[#eceaea]  shadow-xl rounded-lg'>
+                      className='flex w-full p-2 items-center justify-between gap-2 bg-[#000]  shadow-xl rounded-lg'>
                         <div className='flex gap-2 items-center justify-center'>
                               <CalendarDays  size={25} color='#00ff' />
-                           <h2>{labels}</h2>
+                           <h2 className='text-white'>{labels}</h2>
                         </div>
                          
                            <h2

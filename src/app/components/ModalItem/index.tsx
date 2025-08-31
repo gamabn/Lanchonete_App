@@ -3,6 +3,7 @@ import { MouseEvent, use, useContext, useRef, useState } from "react";
 import { Context } from "@/app/Context";
 import { VendasProps } from "@/app/models/interface";
 import { formatReal } from "../money";
+import {format } from "date-fns";
 
 export function ModalItem(){
     const{ handleModalVisible, sales} = useContext(Context)
@@ -31,6 +32,16 @@ export function ModalItem(){
               
                 {/* Info Cliente */}
                 <div>
+                  <div className="flex justify-between items-center mb-2">
+                       <p className="text-gray-600 text-sm font-bold">
+                          {pedido.customer.name} 
+                     </p>
+
+                     <p className="text-gray-600 text-sm">
+                      {format(new Date(pedido.created_at), 'dd/MM/yyyy HH:mm')}
+                     </p>
+                  </div>
+                 
                     <p className="text-gray-600 text-sm">
                   📍 {pedido.customer.city} | 📞 {pedido.customer.phone}
                      </p>
