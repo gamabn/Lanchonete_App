@@ -124,7 +124,7 @@ export function Chat({ chat }: { chat: Chat[] }) {
   }
  
   return (
-    <div className="flex w-full bg-gray-100">
+    <div className="flex w-full bg-gray-100 text-black">
       {/* Sidebar - Lista de Chats */}
       <div className="w-1/3 max-w-xs h-screen border-r border-gray-300 bg-gray-50 overflow-y-auto">
         <div className="p-4 font-bold border-b border-gray-300">Conversas</div>
@@ -191,12 +191,12 @@ export function Chat({ chat }: { chat: Chat[] }) {
               </div>
 
               {/* Input */}
-              <div className="p-3 border-t flex gap-2">
+              <div className="p-3 border-t border-gray-300  items-center justify-between flex gap-2">
                 <input
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   placeholder="Digite sua mensagem..."
-                  className="flex-1 border rounded-lg px-3 py-2 outline-none"
+                  className="flex-1 border text-black text-sm rounded-lg px-3 py-2 outline-none"
                 />
                 <button
                   onClick={sendHandle}
