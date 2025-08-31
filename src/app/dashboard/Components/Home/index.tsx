@@ -91,7 +91,7 @@ export function Home({ data }: { data: VendasProps[] }) {
 
    useEffect(() => {
     // Quando entrar na tela, conectar no socket
-    socket.on("newOrderItem", (newOrder) => {
+    socket.on("newOrder", (newOrder) => {
       console.log("Novo pedido recebido via socket:", newOrder);
 
       // Atualiza lista (mantém os pedidos atuais + novo)
@@ -99,7 +99,7 @@ export function Home({ data }: { data: VendasProps[] }) {
     });
 
     return () => {
-      socket.off("newOrderItem"); // cleanup para evitar múltiplos listeners
+      socket.off("newOrder"); // cleanup para evitar múltiplos listeners
     };
   }, []);
 
