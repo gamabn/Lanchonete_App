@@ -176,7 +176,7 @@ export default function Client(){
     
   }
  const chatMessage = messages.filter(item => item.sender_type === 'restaurant')
- //console.log('chatMessage',chatMessage)
+ 
   
     return(
         <div className=" w-full flex flex-col text-black bg-amber-50">
