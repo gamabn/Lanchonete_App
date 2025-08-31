@@ -96,7 +96,7 @@ export default function Cadastro(){
             }
          }
   return(
-     <div className="w-full  ">
+     <div className="w-full text-black font-normal ">
       <Header/>
        <h1 className="text-3xl font-bold m-6 text-center text-black">Cadastro</h1>
 

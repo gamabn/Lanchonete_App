@@ -238,7 +238,7 @@ export default function Client(){
                     </div>
                     <div className="flex items-center gap-2 justify-center">
                         
-                        <p>{store.open ? 'Aberto' : 'Fechado'}</p>
+                        <p>{isOpen ? 'Aberto' : 'Fechado'}</p>
                         <p className={`h-4 w-4 ${isOpen ? 'bg-green-500' : 'bg-red-500'} rounded-full flex items-center justify-center animate-pulse`}></p>                       
                     </div>
                     {isOpen ?(

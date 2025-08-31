@@ -13,6 +13,7 @@ import { LanchoneteProfile } from "@/app/models/interface";
 import { format, isValid } from 'date-fns'
 import { Message } from "@/app/models/interface";
 import { VendasProps } from "@/app/models/interface";
+import socket from "@/app/components/Socket";
 
 
 
@@ -80,19 +81,35 @@ function formatSales(pedido: VendasProps, lanchoneteProfile: LanchoneteProfile |
 }
 
 export function Home({ data }: { data: VendasProps[] }) {
+   const [orders, setOrders] = useState<VendasProps[]>(data);
   const [deleteModalOrderId, setDeleteModalOrderId] = useState<string | null>(null);
   const { lanchoneteProfile, chatMessage, ChatId, messages } = useContext(Context)
  const [messagesCount, setMessagesCount] = useState<Record<string, number>>({});
  const [messagesLoaded, setMessagesLoaded] = useState(false);
   const router = useRouter();
+  
+
+   useEffect(() => {
+    // Quando entrar na tela, conectar no socket
+    socket.on("newOrderItem", (newOrder) => {
+      console.log("Novo pedido recebido via socket:", newOrder);
+
+      // Atualiza lista (mantém os pedidos atuais + novo)
+      setOrders((prev) => [newOrder, ...prev]);
+    });
+
+    return () => {
+      socket.off("newOrderItem"); // cleanup para evitar múltiplos listeners
+    };
+  }, []);
 
   // Usamos useMemo para evitar que `dataPending` seja recriado a cada renderização,
   // o que causaria um loop infinito no useEffect.
   const dataPending = useMemo(() =>
-    data.filter(
+    orders.filter(
       (item) => item.status === 'pending' || item.status === 'enviado'
     ),
-    [data]
+    [orders]
   );
 
   // Este useEffect agora está no lugar certo (nível superior do componente)

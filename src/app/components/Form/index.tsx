@@ -37,7 +37,7 @@ export function LoginForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-4">
+    <form onSubmit={onSubmit} className="flex flex-col gap-4 text-black">
       <div className="flex flex-col gap-2">
         <label>Email</label>
         <input type="email" name="email" required className="border p-2 rounded-xl"/>

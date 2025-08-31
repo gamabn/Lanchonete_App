@@ -24,6 +24,7 @@ import { id } from "zod/locales";
  type ProdutosData = z.infer<typeof schema>
 
 
+
 export default function Cadastro(){
          const {user, lanchoneteProfile} = useContext(Context)
          const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -73,11 +74,11 @@ export default function Cadastro(){
                         formData.append("description", data.descricao || ""); // string
                         formData.append("restaurant_id", lanchoneteProfile.id.toString()); // string
 
-                 const response = await fetch("/api/product", {
-                    method: "POST",
+                const response = await fetch(`/api/product`, {
+                    method: "POST",                  
                     body: formData,
-                  });
-              // console.log(uploadData)
+                    });
+                                // console.log(uploadData)
                 setLoading(false)
                 if(response.ok){
                     setFormMessage({ type: 'success', text: "Produto cadastrado com sucesso!",  });
