@@ -92,7 +92,7 @@ export function Home({ data }: { data: VendasProps[] }) {
    useEffect(() => {
     // Quando entrar na tela, conectar no socket
     socket.on("newOrder", (newOrder) => {
-      console.log("Novo pedido recebido via socket:", newOrder);
+     // console.log("Novo pedido recebido via socket:", newOrder);
 
       // Atualiza lista (mantém os pedidos atuais + novo)
       setOrders((prev) => [newOrder, ...prev]);

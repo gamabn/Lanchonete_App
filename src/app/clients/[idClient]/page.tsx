@@ -180,7 +180,7 @@ export default function Client(){
   
     return(
         <div className=" w-full flex flex-col text-black bg-amber-50">
-           <header className="h-[150px]  relative top-0 flex items-center bg-[url('/LanchesFundo.jpg')] bg-cover bg-no-repeat bg-center justify-center border-b">
+           <header className="h-[150px]  relative top-0 flex items-center bg-[url('/ProjetoLanches.png')] bg-cover bg-no-repeat bg-center justify-center border-b">
             
              <div className="flex flex-col absolute  top-[115px] z-100">
                 <img 
