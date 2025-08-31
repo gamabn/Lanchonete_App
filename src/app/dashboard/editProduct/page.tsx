@@ -33,14 +33,18 @@ export default function EditProduct(){
      useEffect(() => {
       async function fetchProducts() {
         try {
-          const response = await fetch('/api/product');
-           const res =  await response.json()
+          const response = await fetch('/api/product'); // Requisição GET
+           if (!response.ok) {
+             // Lança um erro para ser pego pelo bloco catch
+             throw new Error(`Falha ao buscar produtos: ${response.status} ${response.statusText}`);
+           }
+           const res =  await response.json();
            const formattedProducts = res.map((p: Product) => ({
            ...p,
             price: Number(p.price) || 0
          }));
 
-           setProducts(formattedProducts)
+           setProducts(formattedProducts);
         
         } catch (error) {
           console.error("Erro ao buscar produtos:", error);
@@ -116,7 +120,7 @@ export default function EditProduct(){
     
     return(
         <div
-        className="p-6 flex flex-col"
+        className="p-6 flex flex-col bg-white text-black"
         >
             <h1 className="text-2xl font-bold  p-3">Editar Produtos</h1>
             <div>

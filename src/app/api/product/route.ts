@@ -66,3 +66,88 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message }, { status });
   }
 }
+
+export async function PUT(request: NextRequest) {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("token")?.value;
+
+  if (!token) {
+    return NextResponse.json({ message: "Não autenticado" }, { status: 401 });
+  }
+
+  const formData = await request.formData();
+  const productId = formData.get("product_id");
+  const name = formData.get("name");
+  const price = formData.get("price");
+  const description = formData.get("description");
+  const restaurantId = formData.get("restaurant_id");
+  const oldPublicId = formData.get("old_public_id");
+  const imageFile = formData.get("file") as File | null; // O arquivo de imagem é opcional
+
+  // Validação para uma atualização
+  if (!productId || !name || !price || !description || !restaurantId) {
+    return NextResponse.json(
+      { message: "Campos essenciais do produto estão faltando." },
+      { status: 400 }
+    );
+  }
+
+  try {
+    const backendForm = new FormData();
+    backendForm.append("product_id", productId.toString());
+    backendForm.append("name", name.toString());
+    backendForm.append("price", price.toString());
+    backendForm.append("description", description.toString());
+    backendForm.append("restaurant_id", restaurantId.toString());
+
+    if (oldPublicId) {
+      backendForm.append("old_public_id", oldPublicId.toString());
+    }
+
+    // Anexa o arquivo somente se um novo foi enviado
+    if (imageFile) {
+      backendForm.append(
+        "file",
+        Buffer.from(await imageFile.arrayBuffer()),
+        {
+          filename: imageFile.name,
+          contentType: imageFile.type,
+        }
+      );
+    }
+
+    // Assumindo que a API externa espera um PUT para /product com os dados no corpo
+    const response = await api.put("/product/edit", backendForm, {
+      headers: {
+        ...backendForm.getHeaders(),
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    return NextResponse.json(response.data);
+  } catch (error: any) {
+    const status = error.response?.status || 500;
+    const message =
+      error.response?.data?.message ||
+      "Erro ao se comunicar com o servidor de produtos.";
+    return NextResponse.json({ message }, { status });
+  }
+
+}
+
+export async function GET(request: NextRequest) {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("token")?.value;
+
+  if (!token) {
+    return NextResponse.json({ message: "Não autenticado" }, { status: 401 });
+  }
+
+  const produtos = await api.get("/product", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  return NextResponse.json(produtos.data);
+}

@@ -18,7 +18,7 @@ export function ModalItem(){
  }
 
     return(
-    <div onClick={handleModalClick} className="bg-gray-800/85 absolute z-50 flex p-5 justify-center w-full h-full ">
+    <div onClick={handleModalClick} className="bg-gray-800/85 absolute z-50 text-black flex p-5 justify-center w-full h-full ">
         <div>
           <div ref={modalREf}  className="bg-white w-full h-[80%] rounded-lg overflow-auto p-5">
             <h1 className="text-2xl text-center">Vendas Mensal</h1>

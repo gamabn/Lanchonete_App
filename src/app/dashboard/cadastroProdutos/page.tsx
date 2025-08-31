@@ -99,7 +99,7 @@ export default function Cadastro(){
             
     
     return(
-        <div className="flex flex-col h-screen w-full p-8">
+        <div className="flex flex-col h-screen w-full p-8 bg-white text-black">
             <h1 className="text-2xl font-bold text-center p-3">Cadastro de Produtos</h1>
            <div>
              <form  onSubmit={handleSubmit(handleCadastro)}>
