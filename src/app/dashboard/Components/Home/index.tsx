@@ -88,12 +88,24 @@ export function Home({ data }: { data: VendasProps[] }) {
  const [messagesLoaded, setMessagesLoaded] = useState(false);
   const router = useRouter();
   
-
+ const playSound = async (src: string) => {
+  // A reprodução de áudio precisa ser tratada com try/catch
+  // porque os navegadores modernos podem bloqueá-la se o usuário
+  // ainda não tiver interagido com a página (clicado em algo).
+  try {
+    const audio = new Audio(src);
+    await audio.play();
+  } catch (error) {
+    console.error("Erro ao tocar o som de notificação:", error);
+    // Opcional: Informar ao usuário que o som foi bloqueado.
+    toast.warn("O som de notificação foi bloqueado. Clique na página para ativá-lo.");
+  }
+ }
    useEffect(() => {
     // Quando entrar na tela, conectar no socket
     socket.on("newOrder", (newOrder) => {
      // console.log("Novo pedido recebido via socket:", newOrder);
-
+      playSound('/audio/uber.mp3')
       // Atualiza lista (mantém os pedidos atuais + novo)
       setOrders((prev) => [newOrder, ...prev]);
     });

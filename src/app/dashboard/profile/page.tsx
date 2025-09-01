@@ -82,7 +82,7 @@ export default function Profile(){
   }
 
     return(
-        <div className="p-6 flex flex-col ">
+        <div className="p-6 flex flex-col bg-white text-black ">
             <h1 className="text-2xl font-bold text-center">
                 Perfil da Lanchonete
                 </h1>
