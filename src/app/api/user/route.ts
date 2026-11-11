@@ -3,6 +3,7 @@ import api from "@/app/util/api";
 
 export async function PUT(request: NextRequest) {
     const token = request.cookies.get("token")?.value;
+   if (!token) return NextResponse.json({ message: "Não autenticado" }, { status: 401 });
    const data = await request.json();
    const {id,  name, email, phone, city, neighborhood, street, number } = data;
 
@@ -30,7 +31,7 @@ export async function PUT(request: NextRequest) {
         return NextResponse.json(response.data);
 
       }catch(error){
-      return NextResponse.json({message:'Erro ao Editar,', error} , {status: 500})
+      return NextResponse.json({message:'Erro ao editar.'} , {status: 500})
       }  
 
 }

@@ -15,7 +15,7 @@ export async function handleLogin(prevState: ActionState, formData: FormData): P
   }
 
   try {
-    const response = await api.post("/auth", { email, password });
+    const response = await api.post("/auth", { email, password }, { timeout: 10000 });
 
     if (!response.data?.token) {
       return { message: "Credenciais inválidas." };
@@ -29,8 +29,8 @@ export async function handleLogin(prevState: ActionState, formData: FormData): P
       value: response.data.token,
       maxAge: maxAgeSeconds,
       httpOnly: true,
-      secure: process.env.NEXT_PUBLIC_API_RENDER === "production",
-      sameSite: "strict",
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
       path: "/",
     });
 

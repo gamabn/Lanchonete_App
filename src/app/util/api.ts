@@ -1,7 +1,8 @@
 import axios from "axios";
+import { backendUrl } from "./backend";
 
 const api = axios.create({
-    baseURL: process.env.NEXT_PUBLIC_API_RENDER
-})
+  baseURL: backendUrl,
+});
 
 export default api;

@@ -1,153 +1,103 @@
-import { NextResponse, NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { cookies } from "next/headers";
+import axios from "axios";
 import api from "@/app/util/api";
-import FormData from "form-data";
 
-export async function POST(request: NextRequest) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("token")?.value;
+// The backend limits the image itself to 5 MiB. Allow room for multipart fields.
+const MAX_MULTIPART_BYTES = 5 * 1024 * 1024 + 256 * 1024;
 
-  const formData = await request.formData();
-  const name = formData.get("name");
-  const price = formData.get("price");
-  const description = formData.get("description");
-  const restaurantId = formData.get("restaurant_id"); // <- pegar o campo extra
-  const imageFile = formData.get("file") as File;
+function productError(message: string, status: number) {
+  return NextResponse.json({ error: message, message }, { status });
+}
 
-  if (!name || !price || !description || !restaurantId || !imageFile) {
-    return NextResponse.json(
-      { message: "Todos os campos são obrigatórios" },
-      { status: 400 }
-    );
+function backendError(error: unknown) {
+  if (axios.isAxiosError(error)) {
+    const response = error.response;
+    const status = response?.status ?? 502;
+    if (status === 401) {
+      return productError("Não autenticado.", status);
+    }
+
+    const message = response?.data?.error ?? response?.data?.message;
+    if (status < 500 && typeof message === "string" && message) {
+      return productError(message, status);
+    }
+
+    return productError("Erro ao se comunicar com o backend de produtos.", status);
   }
 
+  return productError("Erro interno ao processar o produto.", 500);
+}
+
+async function forwardMultipart(request: NextRequest, method: "POST" | "PUT") {
+  const token = (await cookies()).get("token")?.value;
   if (!token) {
-    return NextResponse.json({ message: "Não autenticado" }, { status: 401 });
+    return productError("Não autenticado.", 401);
+  }
+
+  const contentType = request.headers.get("content-type");
+  if (!contentType || !/^multipart\/form-data\s*;/i.test(contentType) || !request.body) {
+    return productError("Envio de produto inválido. Use multipart/form-data.", 400);
+  }
+
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let length = 0;
+  try {
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+
+      length += value.byteLength;
+      if (length > MAX_MULTIPART_BYTES) {
+        await reader.cancel().catch(() => undefined);
+        return productError("O envio excede o tamanho permitido. A imagem deve ter até 5 MiB.", 413);
+      }
+      chunks.push(value);
+    }
+  } catch {
+    return productError("Não foi possível ler o envio do produto.", 400);
+  } finally {
+    reader.releaseLock();
   }
 
   try {
-    // recria um FormData do Node
-    const backendForm = new FormData();
-    backendForm.append("name", name.toString());
-    backendForm.append("price", price.toString());
-    backendForm.append("description", description.toString());
-    backendForm.append("restaurant_id", restaurantId.toString());
-
-    backendForm.append(
-      "file",
-      Buffer.from(await imageFile.arrayBuffer()),
-      {
-        filename: imageFile.name,
-        contentType: imageFile.type,
-      }
-    );
-
-    console.log("produto para api", {
-      name,
-      price,
-      description,
-      restaurantId,
-      imageFile,
-    });
-
-    const response = await api.post("/product", backendForm, {
+    const response = await api.request({
+      method,
+      url: method === "POST" ? "/product" : "/product/edit",
+      data: Buffer.concat(chunks, length),
       headers: {
-        ...backendForm.getHeaders(),
+        "Content-Type": contentType,
         Authorization: `Bearer ${token}`,
       },
     });
-
-    return NextResponse.json(response.data);
-  } catch (error: any) {
-    const status = error.response?.status || 500;
-    const message =
-      error.response?.data?.message ||
-      "Erro ao se comunicar com o servidor de produtos.";
-    return NextResponse.json({ message }, { status });
+    return NextResponse.json(response.data, { status: response.status });
+  } catch (error) {
+    return backendError(error);
   }
 }
 
-export async function PUT(request: NextRequest) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("token")?.value;
+export function POST(request: NextRequest) {
+  return forwardMultipart(request, "POST");
+}
 
-  if (!token) {
-    return NextResponse.json({ message: "Não autenticado" }, { status: 401 });
-  }
-
-  const formData = await request.formData();
-  const productId = formData.get("product_id");
-  const name = formData.get("name");
-  const price = formData.get("price");
-  const description = formData.get("description");
-  const restaurantId = formData.get("restaurant_id");
-  const oldPublicId = formData.get("old_public_id");
-  const imageFile = formData.get("file") as File | null; // O arquivo de imagem é opcional
-
-  // Validação para uma atualização
-  if (!productId || !name || !price || !description || !restaurantId) {
-    return NextResponse.json(
-      { message: "Campos essenciais do produto estão faltando." },
-      { status: 400 }
-    );
-  }
-
-  try {
-    const backendForm = new FormData();
-    backendForm.append("product_id", productId.toString());
-    backendForm.append("name", name.toString());
-    backendForm.append("price", price.toString());
-    backendForm.append("description", description.toString());
-    backendForm.append("restaurant_id", restaurantId.toString());
-
-    if (oldPublicId) {
-      backendForm.append("old_public_id", oldPublicId.toString());
-    }
-
-    // Anexa o arquivo somente se um novo foi enviado
-    if (imageFile) {
-      backendForm.append(
-        "file",
-        Buffer.from(await imageFile.arrayBuffer()),
-        {
-          filename: imageFile.name,
-          contentType: imageFile.type,
-        }
-      );
-    }
-
-    // Assumindo que a API externa espera um PUT para /product com os dados no corpo
-    const response = await api.put("/product/edit", backendForm, {
-      headers: {
-        ...backendForm.getHeaders(),
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    return NextResponse.json(response.data);
-  } catch (error: any) {
-    const status = error.response?.status || 500;
-    const message =
-      error.response?.data?.message ||
-      "Erro ao se comunicar com o servidor de produtos.";
-    return NextResponse.json({ message }, { status });
-  }
-
+export function PUT(request: NextRequest) {
+  return forwardMultipart(request, "PUT");
 }
 
 export async function GET(request: NextRequest) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("token")?.value;
-
+  const token = (await cookies()).get("token")?.value;
   if (!token) {
-    return NextResponse.json({ message: "Não autenticado" }, { status: 401 });
+    return productError("Não autenticado.", 401);
   }
 
-  const produtos = await api.get("/product", {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
-
-  return NextResponse.json(produtos.data);
+  try {
+    const path = request.nextUrl.searchParams.get("configured") === "true" ? "/product?configured=true" : "/product";
+    const response = await api.get(path, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return NextResponse.json(response.data, { status: response.status });
+  } catch (error) {
+    return backendError(error);
+  }
 }

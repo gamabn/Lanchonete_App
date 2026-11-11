@@ -6,7 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test:auth": "node tests/auth-flow.cjs",
+    "test:checkout": "node tests/checkout.cjs",
+    "typecheck": "tsc --noEmit",
+    "test:react-types": "node tests/react-types.cjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.1.1",

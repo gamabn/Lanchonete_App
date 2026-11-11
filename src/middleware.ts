@@ -1,64 +1,31 @@
-// middleware.ts
 import { NextRequest, NextResponse } from "next/server";
+import { backendUrl } from "@/app/util/backend";
 
 export async function middleware(request: NextRequest) {
   const token = request.cookies.get("token")?.value;
-  console.log(`[Middleware] Interceptando: ${request.nextUrl.pathname}`);
-  console.log(`[Middleware] Token encontrado: ${token ? "Sim" : "Não"}`);
-
-  if (!token) {
-    console.log("[Middleware] Token não encontrado. Redirecionando para /");
-    return NextResponse.redirect(new URL("/", request.url));
-  }
-
-  const apiUrl = process.env.NEXT_PUBLIC_API_RENDER;
-  console.log(`[Middleware] URL da API: ${apiUrl}`);
-
-  if (!apiUrl) {
-    console.error(
-      "[Middleware] ERRO GRAVE: A variável de ambiente API_URL não está configurada."
-    );
-    // Mesmo se falhar, vamos tentar deletar o cookie e redirecionar
-    const response = NextResponse.redirect(new URL("/", request.url));
-    response.cookies.delete("token");
-    return response;
-  }
+  const login = () => NextResponse.redirect(new URL("/auth/login", request.url));
+  if (!token) return login();
 
   try {
-    // Usar o construtor URL para evitar problemas com barras duplas
-    const validationUrl = new URL("/me", apiUrl).toString();
-    console.log(`[Middleware] Validando token com a API em: ${validationUrl}`);
-    const res = await fetch(validationUrl, {
+    if (!backendUrl) throw new Error("Backend não configurado");
+    const response = await fetch(`${backendUrl.replace(/\/$/, "")}/me`, {
       headers: { Authorization: `Bearer ${token}` },
       cache: "no-store",
+      signal: AbortSignal.timeout(10000),
     });
-
-    console.log(`[Middleware] Resposta da API: status ${res.status}`);
-
-    if (!res.ok) {
-      // Loga o corpo da resposta de erro da API para mais detalhes
-      const errorBody = await res.text();
-      console.error(
-        `[Middleware] Token inválido. API respondeu com ${res.status}. Corpo da resposta: ${errorBody}`
-      );
-      throw new Error("Token inválido ou expirado.");
-    }
-
-    console.log("[Middleware] Token válido. Permitindo acesso ao dashboard.");
+    if (response.status === 401) return login();
+    if (!response.ok) throw new Error("Falha ao validar sessão");
     return NextResponse.next();
-  } catch (e: any) {
-    // Loga o erro específico
-    console.error("[Middleware] Erro ao validar token:", e.message);
-
-    // Se o token for inválido ou a API falhar, remove o cookie e redireciona para o login
-    console.log("[Middleware] Deletando cookie e redirecionando para /");
-    const response = NextResponse.redirect(new URL("/", request.url));
-    response.cookies.delete("token");
-    return response;
+  } catch {
+    // Fail closed without destroying a valid session during backend outages.
+    // Never delete cookies here: a delayed prefetch may belong to an old session.
+    return new NextResponse("Serviço temporariamente indisponível. Tente novamente.", {
+      status: 503,
+      headers: { "Cache-Control": "no-store", "Content-Type": "text/plain; charset=utf-8" },
+    });
   }
 }
 
-// Limita o escopo do middleware a /dashboard
 export const config = {
   matcher: ["/dashboard/:path*"],
 };

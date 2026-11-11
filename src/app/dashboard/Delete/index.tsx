@@ -1,5 +1,5 @@
 "use client"
-import api from "@/app/util/api";
+import ordersAdminApi from "@/app/util/ordersAdminApi";
 import { toast } from "react-toastify";
 
 interface DeleteProps{
@@ -12,7 +12,7 @@ export function Delete({id, onClose}: DeleteProps){
 
     try {
       // Alterado para a rota de exclusão de PEDIDO
-      await api.delete(`/order_item`,{
+      await ordersAdminApi.delete("",{
         data: {
           id,
         },
@@ -20,9 +20,9 @@ export function Delete({id, onClose}: DeleteProps){
       // Feedback bem óbvio para sabermos que o 'try' funcionou
       alert('SUCESSO! O pedido foi excluído no backend. A página vai recarregar.');
       window.location.reload(); // Recarrega a página para vermos o resultado
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Erro ao excluir pedido:', error);
-      const errorMessage = error.response?.data?.error || "Erro desconhecido ao excluir.";
+      const errorMessage = "Não foi possível excluir o pedido.";
       // Feedback bem óbvio para sabermos que deu erro
       alert(`ERRO: ${errorMessage}\n\nVerifique o console (F12) e a aba 'Rede' para mais detalhes.`);
     }

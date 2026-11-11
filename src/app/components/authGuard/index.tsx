@@ -6,28 +6,34 @@ import { useRouter } from "next/navigation";
 import { Context } from "@/app/Context";
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { user, loadingAuth } = useContext(Context);
+  const { authStatus, authError, revalidateAuth } = useContext(Context);
   const router = useRouter();
 
   useEffect(() => {
     // Se a verificação de autenticação ainda não terminou, não fazemos nada.
-    if (loadingAuth) {
+    if (authStatus === "loading") {
       return;
     }
 
     // Após a verificação, se não houver usuário, redireciona para o login.
-    if (!user) {
-      router.push("/auth/login");
+    if (authStatus === "unauthenticated") {
+      router.replace("/auth/login");
     }
-  }, [user, loadingAuth, router]);
+  }, [authStatus, router]);
 
   // Mostra uma tela de carregamento enquanto a autenticação está sendo verificada.
-  if (loadingAuth) {
+  if (authStatus === "loading") {
     return <p className="text-center mt-10">Carregando...</p>;
   }
 
   // Se o usuário estiver autenticado, renderiza o conteúdo protegido.
   // Caso contrário, o useEffect já terá iniciado o redirecionamento.
   // Retornar null evita um "flash" do conteúdo protegido para usuários não autenticados.
-  return user ? <>{children}</> : null;
+  if (authStatus === "error") {
+    return <div role="alert" className="text-center mt-10">
+      <p>{authError}</p>
+      <button onClick={() => void revalidateAuth()}>Tentar novamente</button>
+    </div>;
+  }
+  return authStatus === "authenticated" ? <>{children}</> : null;
 }
