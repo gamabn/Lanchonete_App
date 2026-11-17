@@ -1,4 +1,7 @@
 "use client";
+import { OrderDestination, OrderAmounts } from "@/app/components/OrderFulfillment";
+import { formatSales } from "@/app/util/orderReceipt";
+import { orderPresentation } from "@/app/util/orderPresentation";
 import chatApi from "@/app/util/chatApi";
 
 import {
@@ -32,7 +35,7 @@ import { toast } from "react-toastify";
 import { format, isValid } from "date-fns";
 
 import { Context } from "@/app/Context";
-import { LanchoneteProfile, VendasProps } from "@/app/models/interface";
+import type { VendasProps } from "@/app/models/interface";
 
 import { Delete } from "../../Delete";
 import { ShareButton } from "../shareButton";
@@ -61,89 +64,6 @@ function formatDate(value: string | Date): string {
   }
 
   return format(date, "dd/MM/yyyy 'às' HH:mm");
-}
-
-// Gera o texto do comprovante
-function formatSales(
-  pedido: VendasProps,
-  lanchoneteProfile: LanchoneteProfile | null,
-) {
-  let text = "COMPROVANTE DE VENDA\n";
-
-  if (lanchoneteProfile?.name) {
-    text += `Lanchonete: ${lanchoneteProfile.name}\n`;
-  }
-
-  text += "----------------------------------------\n";
-  text += `Pedido: ${pedido.order_id}\n`;
-  text += `Data: ${formatDate(pedido.created_at)}\n`;
-  text += `Cliente: ${pedido.customer.name}\n`;
-  text += `Telefone: ${pedido.customer.phone}\n`;
-
-  text += `Endereço: ${pedido.customer.street}, ${pedido.customer.number}\n`;
-  text += `Bairro: ${pedido.customer.neighborhood}\n`;
-  text += `Cidade: ${pedido.customer.city}\n`;
-
-  if (pedido.customer.complement) {
-    text += `Complemento: ${pedido.customer.complement}\n`;
-  }
-
-  text += "----------------------------------------\n";
-  text += "PRODUTOS\n\n";
-
-  pedido.items.forEach((item) => {
-    text += `${item.product_name}\n`;
-
-    // Tamanho ou variante selecionada
-    if (item.variant_name) {
-      text += `Tamanho: ${item.variant_name}\n`;
-    }
-
-    text += `Qtd: ${item.quantity}\n`;
-
-    // Ingredientes e adicionais
-    if (item.options?.length) {
-      text += "INGREDIENTES:\n";
-
-      item.options.forEach((opcao) => {
-        text += `  ${opcao.group_name}: ${opcao.option_name}`;
-
-        if (Number(opcao.additional_price) > 0) {
-          text += ` (+${formatCurrency(opcao.additional_price)})`;
-        }
-
-        text += "\n";
-      });
-    }
-
-    text += `Unitário: ${formatCurrency(item.item_price)}\n`;
-
-    text += `Subtotal: ${formatCurrency(
-      Number(item.quantity) * Number(item.item_price),
-    )}\n\n`;
-  });
-
-  //=====================================================
-  /* pedido.items.forEach((item) => {
-    text += `${item.product_name}\n`;
-    text += `Qtd: ${item.quantity}\n`;
-    text += `Unitário: ${formatCurrency(item.item_price)}\n`;
-    text += `Subtotal: ${formatCurrency(
-      Number(item.quantity) * Number(item.item_price),
-    )}\n\n`;
-  });  */
-  //============================================================
-  text += "----------------------------------------\n";
-  text += `TOTAL: ${formatCurrency(pedido.total_price)}\n`;
-  text += `Pagamento: ${pedido.payment_method || "Não informado"}\n`;
-
-  if (Number(pedido.change_for) > 0) {
-    text += `Troco para: ${formatCurrency(Number(pedido.change_for))}\n`;
-  }
-
-  text += "\nObrigado pela preferência!\n";
-
-  return text;
 }
 
 function downloadTextFile(fileName: string, content: string) {
@@ -447,7 +367,7 @@ export function Home({ data }: { data: VendasProps[] }) {
           status: "enviado",
         });
 
-        toast.success("Pedido enviado com sucesso!");
+        toast.success(orders.find(order => order.order_id === orderId)?.fulfillment_type === "PICKUP" ? "Pedido pronto para retirada!" : "Pedido enviado com sucesso!");
       } else {
         await chatApi.delete(`/chat/${orderId}`);
 
@@ -620,7 +540,7 @@ export function Home({ data }: { data: VendasProps[] }) {
                 },
                 {
                   id: "enviado",
-                  label: "Enviados",
+                  label: "Enviados / prontos",
                   count: sentCount,
                 },
               ].map((item) => (
@@ -701,7 +621,7 @@ export function Home({ data }: { data: VendasProps[] }) {
                             : "bg-blue-100 text-blue-700"
                         }`}
                       >
-                        {isPending ? "Pendente" : "Enviado"}
+                        {isPending ? "Pendente" : orderPresentation(pedido).pickup ? "Pronto para retirada" : "Enviado"}
                       </span>
                     </div>
 
@@ -730,23 +650,7 @@ export function Home({ data }: { data: VendasProps[] }) {
                         className="mt-0.5 shrink-0 text-orange-500"
                       />
 
-                      <div className="text-sm leading-6 text-slate-700">
-                        <p>
-                          {pedido.customer.street}, {pedido.customer.number}
-                        </p>
-
-                        <p>
-                          {pedido.customer.neighborhood}
-                          {" - "}
-                          {pedido.customer.city}
-                        </p>
-
-                        {pedido.customer.complement && (
-                          <p className="text-slate-500">
-                            {pedido.customer.complement}
-                          </p>
-                        )}
-                      </div>
+                      <OrderDestination order={pedido} />
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -858,15 +762,7 @@ export function Home({ data }: { data: VendasProps[] }) {
                         </div>
                       )}
 
-                    <div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-4">
-                      <span className="text-sm font-semibold text-slate-700">
-                        Total do pedido
-                      </span>
-
-                      <span className="text-xl font-bold text-green-600">
-                        {formatCurrency(pedido.total_price)}
-                      </span>
-                    </div>
+                    <OrderAmounts order={pedido} />
                   </div>
 
                   {/* AÇÕES */}
@@ -891,7 +787,7 @@ export function Home({ data }: { data: VendasProps[] }) {
                       ) : isPending ? (
                         <>
                           <Send size={18} />
-                          Enviar pedido
+                          {orderPresentation(pedido).pickup ? "Marcar pronto para retirada" : "Enviar pedido"}
                         </>
                       ) : (
                         <>

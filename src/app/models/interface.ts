@@ -1,4 +1,5 @@
 export interface Product {
+  category?: string | null;
   id: string;
   restaurant_id: string;
   name: string;
@@ -34,11 +35,25 @@ export interface Message {
   created_at: string;
 }
 
+export interface OrderAddress {
+  name?: string | null;
+  street?: string | null;
+  number?: string | number | null;
+  neighborhood?: string | null;
+  city?: string | null;
+  complement?: string | null;
+}
+
 export interface VendasProps {
   restaurant_id: string;
   order_id: string;
   status: string;
   total_price: number;
+  fulfillment_type?: "DELIVERY" | "PICKUP" | null;
+  subtotal?: number | string | null;
+  delivery_fee?: number | string | null;
+  delivery_address?: OrderAddress | null;
+  pickup_address?: OrderAddress | null;
   created_at: string;
   payment_method: string;
   change_for: string | number | null;
@@ -47,11 +62,11 @@ export interface VendasProps {
     id: string;
     name: string;
     phone: string;
-    city: string;
-    street: string;
-    number: string;
-    neighborhood: string;
-    complement?: string;
+    city: string | null;
+    street: string | null;
+    number: string | null;
+    neighborhood: string | null;
+    complement?: string | null;
   };
   items: OrderItem[];
   /* items: {

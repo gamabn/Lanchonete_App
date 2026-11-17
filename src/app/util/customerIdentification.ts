@@ -5,7 +5,7 @@ export interface IdentifiedCustomer {
   restaurant_id: string;
   name: string;
   phone: string;
-  city: string;
+  city: string | null;
   street?: string | null;
   number?: string | null;
   neighborhood?: string | null;
@@ -50,7 +50,7 @@ export async function currentCustomer(restaurantId: string): Promise<IdentifiedC
 
 export function customerAddress(customer: IdentifiedCustomer): AddressData {
   return {
-    name: customer.name, phone: customer.phone, cidade: customer.city,
+    name: customer.name, phone: customer.phone, cidade: customer.city ?? "",
     rua: customer.street ?? "", numero: customer.number ?? "",
     bairro: customer.neighborhood ?? "", complemento: customer.complement ?? "",
   };
@@ -61,6 +61,9 @@ export async function saveCustomerIdentification(
   address: AddressData,
   expected: IdentifiedCustomer | null,
 ): Promise<IdentifiedCustomer> {
+  if ([address.cidade, address.rua, address.numero, address.bairro].some(value => typeof value !== "string" || !value.trim())) {
+    throw new CustomerIdentificationError("CUSTOMER_INPUT_INVALID", "Informe o endereço completo para entrega.");
+  }
   // Recheck on submit. A different tab may have replaced or ended the session.
   const current = await currentCustomer(restaurantId);
   if ((current?.id ?? null) !== (expected?.id ?? null)) {
@@ -87,4 +90,30 @@ export async function saveCustomerIdentification(
 
 export function endCustomerSession(restaurantId: string) {
   return customerRequest(restaurantId, { method: "DELETE" });
+}
+
+/** Pickup confirms identity without writing an existing customer's address. */
+export async function confirmPickupCustomer(
+  restaurantId: string,
+  contact: { name: string; phone: string },
+  expected: IdentifiedCustomer | null,
+): Promise<IdentifiedCustomer> {
+  const current = await currentCustomer(restaurantId);
+  if ((current?.id ?? null) !== (expected?.id ?? null) ||
+      (current && (current.name !== contact.name || current.phone !== contact.phone))) {
+    throw new CustomerIdentificationError("SESSION_CHANGED", "A sessão mudou. Confirme novamente sua identificação.");
+  }
+  if (current) return current;
+  if (!contact.name.trim() || !/^\d{11,15}$/.test(contact.phone)) {
+    throw new CustomerIdentificationError("CUSTOMER_INVALID", "Confira seu nome e telefone.");
+  }
+  const customer = await customerRequest(restaurantId, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: contact.name.trim(), phone: contact.phone, fulfillment_type: "PICKUP" }),
+  });
+  if (typeof customer.id !== "string" || customer.restaurant_id !== restaurantId ||
+      typeof customer.name !== "string" || typeof customer.phone !== "string") {
+    throw new CustomerIdentificationError("SESSION_INVALID", "A sessão retornou um cadastro inválido.");
+  }
+  return customer;
 }

@@ -62,3 +62,16 @@ test('joining renews authorization after reconnection and cancels stale pending 
   assert.equal(emitted.at(-1)[1].ticket, 'reconnected');
   leaveChat(socket, 'ca'); assert.equal(timers.size, 0);
 });
+
+test('chat interceptor preserves explicit credentials after navigation and prevents empty credentials falling back to owner',()=>{
+  let intercept;const storage=new Map([['chat_credential:B','token-B']]);
+  load('src/app/util/chatApi.ts',{axios:{create:()=>({interceptors:{request:{use:fn=>intercept=fn}}})}}, {
+    window:{location:{pathname:'/clients/B'}},localStorage:{getItem:key=>storage.get(key)??null},
+  });
+  const {AxiosHeaders}=require('axios');
+  for(const [initial,expected] of [['token-A','token-A'],['','missing-customer-credential'],[undefined,'token-B']]){
+    const headers=new AxiosHeaders();if(initial!==undefined)headers.set('x-chat-credential',initial);
+    const config=intercept({headers});assert.equal(config.headers.get('x-chat-credential'),expected);
+  }
+  storage.clear();const config=intercept({headers:new AxiosHeaders()});assert.equal(config.headers.get('x-chat-credential'),'missing-customer-credential');
+});

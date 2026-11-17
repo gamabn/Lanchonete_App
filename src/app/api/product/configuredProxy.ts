@@ -12,7 +12,7 @@ export function configuredProductError(error: string, status: number, details?: 
 export async function forwardConfiguredProduct(
   path: string,
   body?: unknown,
-  method: "GET" | "POST" | "PATCH" = body === undefined ? "GET" : "POST",
+  method: "GET" | "POST" | "PATCH" | "DELETE" = body === undefined ? "GET" : "POST",
 ) {
   const token = (await cookies()).get("token")?.value;
   if (!token) return configuredProductError("Não autenticado.", 401);
@@ -45,7 +45,7 @@ export async function forwardConfiguredProduct(
 
 export const productUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export async function forwardConfiguredWrite(request: NextRequest, path: string, method: "POST" | "PATCH") {
+export async function forwardConfiguredWrite(request: NextRequest, path: string, method: "POST" | "PATCH" | "DELETE") {
   if (request.headers.get("origin") !== request.nextUrl.origin) {
     return configuredProductError("Origem inválida.", 403);
   }

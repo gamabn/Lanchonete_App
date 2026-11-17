@@ -142,3 +142,14 @@ test('confirmed updates reject a replaced session or a different person before w
   }
   assert.equal(h.calls.some(call => call.method === 'put'), false);
 });
+
+test('PICKUP signup proxy forwards contact/mode and preserves NULL address without exposing credentials',async()=>{
+  const profile={...customer,city:null,street:null,number:null,neighborhood:null,complement:null};
+  const h=route({}, {post:async(url,body)=>{
+    assert.equal(url,'/client/A');assert.deepEqual(body,{name:'Alice',phone:'111',fulfillment_type:'PICKUP'});
+    return {data:{...profile,customer_credential:'profile-secret'}};
+  }});
+  const response=await h.POST(request('POST',{name:'Alice',phone:'111',fulfillment_type:'PICKUP'}),context('A'));
+  assert.equal(response.status,201);assert.deepEqual(await response.json(),profile);
+  assert.equal(response.cookies.get('__Host-gama_customer_A').httpOnly,true);
+});

@@ -80,3 +80,37 @@ real de `react/jsx-runtime`, sua declaração de tipos e os dois componentes de 
 Se os comandos passarem e o editor continuar acusando erros, é necessário conferir
 o caminho do arquivo e o log do TS Server no editor; o build sozinho não confirma
 qual projeto o editor selecionou.
+# WhatsApp no dashboard — H.12
+
+Página `/dashboard/whatsapp`, acessível pelo menu desktop e mobile, sob o AuthGuard
+existente. Os proxies `/api/whatsapp/connect`, `/status`, `/qr` e `/disconnect`
+usam somente o cookie HttpOnly `token` no servidor Next. POST exige Origin da
+própria aplicação. IDs, headers de autorização e corpos enviados pelo navegador
+não são encaminhados como seleção de restaurante. Respostas são privadas e sem cache.
+
+O QR é renderizado localmente em SVG usando `qrcode`, sem serviço externo ou logs.
+O proxy associa QR e proprietário consultando status com o mesmo JWT capturado
+no servidor. O painel rejeita respostas de outra conta, cancela requisições antigas
+e remove QR ao expirar, ocultar a página, desconectar, trocar de usuário ou sair.
+Polling serializado: 3s ao conectar/parear/reconectar, 15s em estado estável, 30s
+em erro/modo legado, e backoff até 60s para falhas de leitura. Aba oculta pausa
+requisições; POSTs nunca são repetidos automaticamente. Desconectar pede confirmação
+e preserva a sessão no backend. Falhas 401 acionam a revalidação de autenticação
+existente; conflitos com o worker legado são apresentados sem tentar contorná-los.
+
+Validação automatizada, sem WhatsApp/Neon reais:
+
+```bash
+npm run typecheck
+npm run test:whatsapp
+npm run test:auth
+node tests/product-navigation.cjs
+```
+
+Validação manual futura: com o backend H.11 configurado para checkout real e volume
+persistente, usar dois perfis de navegador separados, autenticados como A e B.
+Abrir WhatsApp em ambos, conectar e escanear com números distintos. Conferir status
+Conectado e cardápio correto em cada número; desconectar A (confirmando) e verificar
+que B continua conectado. Recarregar as páginas, testar troca de conta/expiração e
+conferir que nenhum QR anterior permanece. Testes de pedidos reais exigem autorização
+própria; a validação automatizada não inicia conexões, pedidos ou deploy.

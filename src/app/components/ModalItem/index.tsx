@@ -4,6 +4,7 @@ import { MouseEvent, useContext, useRef } from "react";
 import { Context } from "@/app/Context";
 import { formatReal } from "../money";
 import { format } from "date-fns";
+import { OrderDestination, OrderAmounts } from "../OrderFulfillment";
 
 export function ModalItem() {
   const { handleModalVisible, sales } = useContext(Context);
@@ -43,23 +44,8 @@ export function ModalItem() {
                 </p>
               </div>
 
-              <p className="text-gray-600 text-sm">
-                📍 {pedido.customer.city} | 📞 {pedido.customer.phone}
-              </p>
-
-              <p className="text-gray-600 text-sm">
-                Bairro: {pedido.customer.neighborhood}
-              </p>
-
-              <p className="text-gray-600 text-sm">
-                {pedido.customer.street}, {pedido.customer.number}
-              </p>
-
-              {pedido.customer.complement && (
-                <p className="text-gray-600 text-sm">
-                  {pedido.customer.complement}
-                </p>
-              )}
+              <p className="text-gray-600 text-sm">📞 {pedido.customer.phone}</p>
+              <OrderDestination order={pedido} />
             </div>
 
             {/* Itens do pedido */}
@@ -144,14 +130,7 @@ export function ModalItem() {
                 )}
             </div>
 
-            {/* Total */}
-            <div className="flex justify-between items-center mt-3 border-t pt-3">
-              <h2 className="font-medium">Total:</h2>
-
-              <h2 className="font-bold text-lg text-green-600">
-                {formatReal(pedido.total_price)}
-              </h2>
-            </div>
+            <OrderAmounts order={pedido} />
           </div>
         ))}
       </div>

@@ -16,9 +16,14 @@ import {
   X,
 } from "lucide-react";
 import { Context } from "@/app/Context";
+import CategoryField, { useProductCategories } from "./CategoryField";
+import { categoryValue } from "./productCategory";
+import { useUnsavedChanges } from "./useUnsavedChanges";
+import ProductNavigation from "./ProductNavigation";
 import ConfiguredProductForm from "./ConfiguredProductForm";
 
 const schema = z.object({
+  category: z.string().optional(),
   name: z.string().trim().min(1, "Nome é obrigatório"),
   description: z.string().trim().min(1, "Descrição é obrigatória"),
   price: z
@@ -41,12 +46,21 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>;
 
 export default function Produtos() {
+  const [view, setView] = useState<"new" | "models">("new");
+  const [origin, setOrigin] = useState<"scratch" | "template">("scratch");
   const [mode, setMode] = useState<"simple" | "configured">("simple");
   const [configuredOpened, setConfiguredOpened] = useState(false);
+  const [configuredPending, setConfiguredPending] = useState(false);
   const [draftId, setDraftId] = useState("");
+  const [productHeading, setProductHeading] = useState<{ id: string; name: string } | null>(null);
 
   useEffect(() => {
-    const initialDraft = new URLSearchParams(window.location.search).get("draft");
+    const params = new URLSearchParams(window.location.search);
+    const initialDraft = params.get("draft");
+    if (params.get("view") === "models") {
+      setView("models");
+      setConfiguredOpened(true);
+    }
     if (initialDraft) {
       setDraftId(initialDraft);
       setConfiguredOpened(true);
@@ -54,15 +68,16 @@ export default function Produtos() {
     }
   }, []);
 
-  function changeDraft(id: string) {
-    setDraftId(id);
-    const url = new URL(window.location.href);
-    if (id) {
-      url.searchParams.set("draft", id);
-    } else {
-      url.searchParams.delete("draft");
-    }
-    window.history.replaceState(null, "", url);
+  function changeDraft(id: string, beforeChange?: () => void) {
+    const change = () => {
+      setConfiguredPending(false);
+      beforeChange?.();
+      setDraftId(id);
+      const url = new URL(window.location.href);
+      if (id) url.searchParams.set("draft", id); else url.searchParams.delete("draft");
+      window.history.replaceState(null, "", url);
+    };
+    if (draftId && id !== draftId) unsaved.requestLeave(change); else change();
   }
 
   const [loading, setLoading] = useState(false);
@@ -71,17 +86,20 @@ export default function Produtos() {
   const [preview, setPreview] = useState<string | null>(null);
 
   const { lanchoneteProfile } = useContext(Context);
+  const categories = useProductCategories();
 
   const {
     register,
     handleSubmit,
     control,
-    formState: { errors },
+    formState: { errors, isDirty },
     reset,
     setValue,
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
   });
+
+  const unsaved = useUnsavedChanges(Boolean(isDirty || image || configuredPending), `${lanchoneteProfile?.id ?? ""}:${draftId || "new"}`);
 
   useEffect(() => {
     if (!image) {
@@ -108,6 +126,7 @@ export default function Produtos() {
     try {
       const formData = new FormData();
 
+      formData.append("category", categoryValue(data.category) ?? "");
       formData.append("name", data.name);
       formData.append("description", data.description);
       formData.append("price", data.price.replace(",", "."));
@@ -122,7 +141,7 @@ export default function Produtos() {
 
       if (!response.ok) {
         throw new Error(
-          resultado.message || "Não foi possível cadastrar o produto.",
+          resultado.error || resultado.message || "Não foi possível cadastrar o produto.",
         );
       }
 
@@ -145,12 +164,15 @@ export default function Produtos() {
   };
 
   const sucesso = mensagem.startsWith("✅");
+  const isEditing = view === "new" && Boolean(draftId);
+  const editingName = productHeading?.id === draftId ? productHeading.name : "";
 
   const inputClass =
     "w-full rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-sm text-slate-800 outline-none transition-all placeholder:text-slate-400 focus:border-orange-400 focus:ring-4 focus:ring-orange-100";
 
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-8 sm:px-6 lg:px-10">
+      {unsaved.dialog}
       <div className="mx-auto max-w-6xl">
         {/* CABEÇALHO */}
         <header className="mb-8">
@@ -160,19 +182,54 @@ export default function Produtos() {
           </div>
 
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-            Cadastrar novo produto
+            {isEditing ? `Editar produto${editingName ? ` — ${editingName}` : ""}` : view === "models" ? "Meus modelos" : "Novo produto"}
           </h1>
 
           <p className="mt-2 text-sm text-slate-500">
-            Adicione um novo item ao cardápio da sua lanchonete.
+            {view === "models" ? "Gerencie os modelos privados do seu estabelecimento." : isEditing
+              ? "Atualize as informações e personalizações deste produto."
+              : "Cadastre um produto do zero ou use um modelo pronto para começar."}
           </p>
         </header>
 
-        <fieldset className="mb-6 grid gap-3 sm:grid-cols-2">
+        <ProductNavigation preserveNew={!draftId} active={isEditing ? "edit" : view} onSelect={next => {
+          if (next === "new" && draftId) {
+            changeDraft("", () => { setView("new"); setOrigin("scratch"); setMode("simple"); });
+            return;
+          }
+          setView(next);
+          const url = new URL(window.location.href);
+          if (next === "models") url.searchParams.set("view", "models");
+          else url.searchParams.delete("view");
+          window.history.replaceState(null, "", url);
+          if (next === "models") setConfiguredOpened(true);
+        }} />
+        {view === "models" && draftId && <button type="button"
+          className="mb-4 text-sm font-semibold text-orange-700 hover:underline"
+          onClick={() => {
+            setView("new");
+            const url = new URL(window.location.href);
+            url.searchParams.delete("view");
+            window.history.replaceState(null, "", url);
+          }}>Continuar edição{editingName ? ` — ${editingName}` : " do produto"}</button>}
+        {view === "new" && draftId && <p className="mb-4 text-sm text-slate-600">Você está editando um produto existente. Acesse Editar produtos para selecionar outro.</p>}
+
+        <fieldset hidden={view !== "new" || Boolean(draftId)} className="mb-6 grid gap-3 sm:grid-cols-2">
+          <legend className="mb-2 text-sm font-semibold text-slate-700">Como deseja começar?</legend>
+          {([ ["scratch", "Criar do zero"], ["template", "Usar modelo pronto"] ] as const).map(([value, label]) => (
+            <label key={value} className={`flex cursor-pointer items-center gap-3 rounded-xl border bg-white p-4 ${origin === value ? "border-orange-500" : "border-slate-200"}`}>
+              <input type="radio" name="product-origin" value={value} checked={origin === value} className="accent-orange-600"
+                onChange={() => { setOrigin(value); if (value === "template") setConfiguredOpened(true); }} />
+              <span className="text-sm font-semibold text-slate-900">{label}</span>
+            </label>
+          ))}
+        </fieldset>
+
+        <fieldset hidden={view !== "new" || origin !== "scratch" || Boolean(draftId)} className="mb-6 grid gap-3 sm:grid-cols-2">
           <legend className="mb-2 text-sm font-semibold text-slate-700">Tipo de produto</legend>
           {([
-            ["simple", "Simples", "Um produto com preço único."],
-            ["configured", "Configurável", "Um produto com tamanhos e grupos de escolhas."],
+            ["simple", "Preço único", "Um produto com preço único."],
+            ["configured", "Com tamanhos e/ou escolhas", "Um produto com tamanhos e grupos de escolhas."],
           ] as const).map(([value, label, description]) => (
             <label key={value} className={`flex cursor-pointer items-center gap-3 rounded-xl border bg-white p-4 ${mode === value ? "border-orange-500" : "border-slate-200"}`}>
               <input type="radio" name="product-mode" value={value} checked={mode === value}
@@ -189,13 +246,13 @@ export default function Produtos() {
         </fieldset>
 
         {configuredOpened && (
-          <div hidden={mode !== "configured"}>
-            <ConfiguredProductForm draftId={draftId} onDraftChange={changeDraft} />
+          <div hidden={view !== "models" && !draftId && origin !== "template" && mode !== "configured"}>
+            <ConfiguredProductForm draftId={draftId} onDraftChange={changeDraft} onProductLoaded={setProductHeading} onPendingChange={setConfiguredPending} view={view === "models" ? "models" : origin === "template" && !draftId ? "templates" : "scratch"} />
           </div>
         )}
 
         {/* MENSAGEM DE RETORNO */}
-        {mode === "simple" && mensagem && (
+        {view === "new" && origin === "scratch" && mode === "simple" && !draftId && mensagem && (
           <div
             role="alert"
             className={`mb-6 flex items-center gap-3 rounded-xl border px-4 py-3 text-sm font-medium ${
@@ -219,7 +276,7 @@ export default function Produtos() {
           </div>
         )}
 
-        <form hidden={mode !== "simple"} onSubmit={handleSubmit(handleRegister)}>
+        <form hidden={view !== "new" || origin !== "scratch" || mode !== "simple" || Boolean(draftId)} onSubmit={handleSubmit(handleRegister)}>
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
             {/* DADOS DO PRODUTO */}
             <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7 lg:col-span-3">
@@ -266,6 +323,7 @@ export default function Produtos() {
                   )}
                 </div>
 
+                <CategoryField className={inputClass} suggestions={categories} {...register("category")} />
                 {/* DESCRIÇÃO */}
                 <div>
                   <label

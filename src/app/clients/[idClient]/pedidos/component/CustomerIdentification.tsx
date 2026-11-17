@@ -3,9 +3,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FormClient, type AddressData, type Bairro } from "./index";
 import {
-  currentCustomer, customerAddress, endCustomerSession, saveCustomerIdentification,
+  currentCustomer, customerAddress, endCustomerSession, saveCustomerIdentification, confirmPickupCustomer,
   CustomerIdentificationError, type IdentifiedCustomer,
 } from "@/app/util/customerIdentification";
+import PickupContactForm from "./PickupContactForm";
+import CustomerEmailRecovery from "./CustomerEmailRecovery";
 import { clearCustomerBrowserData } from "@/app/util/customerStorage";
 
 type Session =
@@ -13,8 +15,9 @@ type Session =
   | { status: "ready"; customer: IdentifiedCustomer | null }
   | { status: "error"; code: string; message: string };
 
-export default function CustomerIdentification({ restaurantId, bairros, loadingBairros, initialData, initialCustomerId, onIdentified, onLogout, onClose }: {
+export default function CustomerIdentification({ restaurantId, bairros, loadingBairros, initialData, initialCustomerId, onIdentified, onLogout, onClose, fulfillmentType = "DELIVERY" }: {
   restaurantId: string;
+  fulfillmentType?: "DELIVERY" | "PICKUP";
   bairros: Bairro[];
   loadingBairros: boolean;
   initialData: AddressData | null;
@@ -27,6 +30,7 @@ export default function CustomerIdentification({ restaurantId, bairros, loadingB
   const [confirmed, setConfirmed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [recovering, setRecovering] = useState(false);
   const [revision, setRevision] = useState(0);
   const lock = useRef(false);
   const mounted = useRef(true);
@@ -39,6 +43,7 @@ export default function CustomerIdentification({ restaurantId, bairros, loadingB
     let active = true;
     setSession({ status: "loading" });
     setConfirmed(false);
+    setRecovering(false);
     currentCustomer(restaurantId).then((customer) => {
       if (active) setSession({ status: "ready", customer });
     }).catch((failure) => {
@@ -90,8 +95,26 @@ export default function CustomerIdentification({ restaurantId, bairros, loadingB
     }
   }
 
+  async function identifyPickup(contact: { name: string; phone: string }) {
+    if (lock.current || session.status !== "ready") return;
+    lock.current = true;
+    setBusy(true);
+    setError("");
+    try {
+      const customer = await confirmPickupCustomer(restaurantId, contact, session.customer);
+      if (!session.customer) clearCustomerBrowserData(restaurantId);
+      if (mounted.current) onIdentified(customerAddress(customer), customer);
+    } catch (failure) {
+      if (mounted.current) {
+        setError(failure instanceof Error ? failure.message : "Não foi possível confirmar sua identificação.");
+        setConfirmed(false);
+        setRevision(value => value + 1);
+      }
+    } finally { lock.current = false; if (mounted.current) setBusy(false); }
+  }
+
   const customer = session.status === "ready" ? session.customer : null;
-  const showForm = session.status === "ready" && (!customer || confirmed);
+  const showForm = !recovering && session.status === "ready" && (!customer || confirmed);
   // The authenticated profile supplies identity; an in-memory address may supply delivery fields.
   const formAddress = useMemo(() => customer ? {
     ...customerAddress(customer),
@@ -122,20 +145,33 @@ export default function CustomerIdentification({ restaurantId, bairros, loadingB
         <div className="mb-4 space-y-3 rounded-xl border border-orange-200 bg-orange-50 p-4">
           <p className="font-semibold">{customer.name}</p>
           <p className="text-sm">{customer.phone}</p>
-          {!confirmed && <button type="button" disabled={busy} onClick={() => setConfirmed(true)}
+          {!confirmed && <button type="button" disabled={busy} onClick={() => fulfillmentType === "PICKUP" ? void identifyPickup({name:customer.name,phone:customer.phone}) : setConfirmed(true)}
             className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white">Continuar como {customer.name}</button>}
           <button type="button" disabled={busy} onClick={() => void logout()}
             className="block text-sm font-semibold text-orange-800 underline">Não sou eu / Trocar cliente</button>
         </div>
       )}
+      {!customer && session.status !== "loading" && <CustomerEmailRecovery
+        key={restaurantId} restaurantId={restaurantId} disabled={busy} onActiveChange={setRecovering}
+        onBusyChange={value => { lock.current = value; setBusy(value); }}
+        onRecovered={() => {
+          clearCustomerBrowserData(restaurantId);
+          onLogout();
+          setRecovering(false);
+          setConfirmed(false);
+          setError("");
+          setSession({ status: "loading" });
+          setRevision(value => value + 1);
+        }}
+      />}
       {showForm && (
         <>
           {!customer && <p className="mb-3 text-sm text-slate-600">Informe seus dados para iniciar um novo cadastro nesta loja. O telefone é um dado de contato.</p>}
-          <FormClient
+          {fulfillmentType === "PICKUP" ? <PickupContactForm busy={busy} onConfirm={identifyPickup} /> : <FormClient
             key={customer?.id ?? "new"} onSubmitAddress={identify}
             handleActive={onClose} initialData={formAddress} bairros={bairros}
             loadingBairros={loadingBairros} identityReadOnly={Boolean(customer)} busy={busy}
-          />
+          />}
         </>
       )}
       {busy && <p role="status" className="mt-3 text-sm text-slate-600">Processando identificação…</p>}

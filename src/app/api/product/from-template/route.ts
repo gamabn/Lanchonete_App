@@ -12,5 +12,7 @@ export async function POST(request: NextRequest) {
     return configuredProductError("Informe um modelo válido.", 400);
   }
 
-  return forwardConfiguredProduct("/products/from-template", { templateSlug: templateSlug.trim() });
+  return forwardConfiguredProduct("/products/from-template", { templateSlug: templateSlug.trim(),
+    ...(Object.prototype.hasOwnProperty.call(body, "category") ? { category: body.category } : {}),
+  });
 }

@@ -19,6 +19,7 @@ import {
   AlignJustify,
   House,
   UserRound,
+  Smartphone,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useContext } from "react";
@@ -129,7 +130,7 @@ export function HeaderDashboard({ children }: { children: React.ReactNode }) {
             </Link>
             <Link
               className="flex hover:bg-gray-700 rounded-full p-2 items-center justify-center"
-              href="/dashboard/product"
+              href="/dashboard/product" aria-label="Novo produto" title="Novo produto"
             >
               <FiShoppingBag color="#fff" size={26} />
             </Link>
@@ -154,10 +155,13 @@ export function HeaderDashboard({ children }: { children: React.ReactNode }) {
             >
               <UserRound size={26} color="#fff" />
             </Link>
+            <Link className="flex hover:bg-gray-700 rounded-full p-2 items-center justify-center" href="/dashboard/whatsapp" aria-label="WhatsApp" title="WhatsApp">
+              <Smartphone size={26} color="#fff" />
+            </Link>
 
             <Link
               className="flex hover:bg-gray-700 rounded-full p-2 items-center justify-center"
-              href="/dashboard/editProduct"
+              href="/dashboard/editProduct" aria-label="Editar produto" title="Editar produto"
             >
               <FilePenLine size={26} color="#fff" />
             </Link>
@@ -208,7 +212,7 @@ export function HeaderDashboard({ children }: { children: React.ReactNode }) {
                   <House size={26} color="#FFF" />
                 </Link>
 
-                <Link href="/dashboard/cadastroProdutos">
+                <Link href="/dashboard/product" aria-label="Novo produto" title="Novo produto">
                   <FiShoppingBag color="#FFF" size={26} />
                 </Link>
 
@@ -223,8 +227,11 @@ export function HeaderDashboard({ children }: { children: React.ReactNode }) {
                 <Link href="/dashboard/profile">
                   <UserRound size={26} color="#fff" />
                 </Link>
+                <Link href="/dashboard/whatsapp" aria-label="WhatsApp" title="WhatsApp">
+                  <Smartphone size={26} color="#fff" />
+                </Link>
 
-                <Link href="/dashboard/editProduct">
+                <Link href="/dashboard/editProduct" aria-label="Editar produto" title="Editar produto">
                   <FilePenLine size={26} color="#fff" />
                 </Link>
                 <div

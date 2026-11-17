@@ -1,6 +1,6 @@
 "use client";
 
-import { useContext, useEffect, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -17,9 +17,14 @@ import {
   ShoppingBag,
 } from "lucide-react";
 import { Context } from "@/app/Context";
+import { useUnsavedChanges } from "../product/useUnsavedChanges";
+import ProductNavigation from "../product/ProductNavigation";
+import CategoryField from "../product/CategoryField";
+import { categoryValue, categorySuggestions } from "../product/productCategory";
 import { toast } from "react-toastify";
 
 interface Product {
+  category?: string | null;
   id: string;
   name: string;
   description: string;
@@ -82,9 +87,42 @@ export default function EditProduct() {
 
   const [refreshKey, setRefreshKey] = useState(0);
 
-  // Buscar produtos
+  const [savedProducts, setSavedProducts] = useState<Record<string, Product>>({});
+  const scope = lanchoneteProfile?.id || user?.id || "";
+  const scopeRef = useRef(scope);
+  scopeRef.current = scope;
+  const previousScope = useRef(scope);
+  const productsRef = useRef(products);
+  productsRef.current = products;
+  const previewsRef = useRef(previews);
+  previewsRef.current = previews;
+  const revisions = useRef<Record<string, number>>({});
+  const listEpoch = useRef(0);
+  const pendingIds = new Set(products.filter(product => {
+    const saved = savedProducts[product.id];
+    return !product.has_variants && product.restaurant_id === scope && saved && (
+      product.name !== saved.name || product.description !== saved.description ||
+      (product.category ?? "") !== (saved.category ?? "") ||
+      parsePrice(priceInputs[product.id] ?? product.price) !== Number(saved.price) || Boolean(filesToUpload[product.id])
+    );
+  }).map(product => product.id));
+  const pendingIdsRef = useRef(pendingIds);
+  pendingIdsRef.current = pendingIds;
+  const unsaved = useUnsavedChanges(pendingIds.size > 0, scope);
+  function touch(productId: string) { revisions.current[productId] = (revisions.current[productId] ?? 0) + 1; }
+
+  // Refresh clean rows while retaining every local draft, including deleted remote rows.
   useEffect(() => {
     let ativo = true;
+    const epoch = ++listEpoch.current;
+    if (previousScope.current !== scope) {
+      previousScope.current = scope;
+      productsRef.current = [];
+      pendingIdsRef.current = new Set();
+      revisions.current = {};
+      Object.values(previewsRef.current).forEach(url => URL.revokeObjectURL(url));
+      setProducts([]); setSavedProducts({}); setPriceInputs({}); setFilesToUpload({}); setPreviews({}); setLoadingProductId(null);
+    }
 
     async function fetchProducts() {
       setLoadingProducts(true);
@@ -100,23 +138,29 @@ export default function EditProduct() {
 
         const res: Product[] = await response.json();
 
-        if (!ativo) return;
+        if (!ativo || epoch !== listEpoch.current) return;
 
         const formattedProducts = res.map((product) => ({
           ...product,
           price: Number(product.price) || 0,
         }));
 
-        setProducts(formattedProducts);
-
-        // Preços da interface, sempre em reais
-        const prices: Record<string, string> = {};
-
-        formattedProducts.forEach((product) => {
-          prices[product.id] = formatPrice(product.price);
+        const pending = pendingIdsRef.current;
+        const current = new Map(productsRef.current.map(product => [product.id, product]));
+        const merged = formattedProducts.map(product => pending.has(product.id) ? current.get(product.id) ?? product : product);
+        for (const product of current.values()) {
+          if (pending.has(product.id) && !merged.some(row => row.id === product.id)) merged.push(product);
+        }
+        setProducts(merged);
+        setSavedProducts(previous => {
+          const next: Record<string, Product> = {};
+          for (const product of merged) next[product.id] = pending.has(product.id) ? previous[product.id] ?? product : product;
+          return next;
         });
+        setPriceInputs(previous => Object.fromEntries(merged.map(product => [product.id,
+          pending.has(product.id) ? previous[product.id] ?? formatPrice(product.price) : formatPrice(product.price),
+        ])));
 
-        setPriceInputs(prices);
       } catch (error) {
         console.error("Erro ao buscar produtos:", error);
 
@@ -135,22 +179,18 @@ export default function EditProduct() {
     return () => {
       ativo = false;
     };
-  }, [user?.id, refreshKey]);
+  }, [user?.id, scope, refreshKey]);
 
-  // Limpar URLs temporárias quando mudarem ou desmontar
-  useEffect(() => {
-    return () => {
-      Object.values(previews).forEach((url) => {
-        URL.revokeObjectURL(url);
-      });
-    };
-  }, [previews]);
+  useEffect(() => () => {
+    Object.values(previewsRef.current).forEach(url => URL.revokeObjectURL(url));
+  }, []);
 
   const handleChange = (
     productId: string,
     field: keyof Product,
     value: string | number,
   ) => {
+    touch(productId);
     setProducts((prev) =>
       prev.map((product) =>
         product.id === productId ? { ...product, [field]: value } : product,
@@ -166,6 +206,8 @@ export default function EditProduct() {
       return;
     }
 
+    touch(productId);
+    if (previews[productId]) URL.revokeObjectURL(previews[productId]);
     setFilesToUpload((prev) => ({
       ...prev,
       [productId]: file,
@@ -210,11 +252,14 @@ export default function EditProduct() {
       return;
     }
 
+    const revision = revisions.current[productId] ?? 0;
+    const saveScope = scope;
     setLoadingProductId(productId);
 
     try {
       const formData = new FormData();
 
+      formData.append("category", categoryValue(productToUpdate.category) ?? "");
       formData.append("product_id", productToUpdate.id);
       formData.append("name", productToUpdate.name.trim());
       formData.append("description", productToUpdate.description.trim());
@@ -240,26 +285,37 @@ export default function EditProduct() {
         const errorData = await res.json().catch(() => ({}));
 
         throw new Error(
-          errorData.message ||
+          errorData.error || errorData.message ||
             `Falha ao atualizar o produto "${productToUpdate.name}".`,
         );
       }
 
-      toast.success(
-        `Produto "${productToUpdate.name}" atualizado com sucesso!`,
-      );
+      const result = await res.json();
+      if (scopeRef.current !== saveScope) return;
+      toast.success(`Produto "${productToUpdate.name}" atualizado com sucesso!`);
+      ++listEpoch.current; // An older list request must not replace this confirmed response.
+      const saved: Product = { ...productToUpdate, name: productToUpdate.name.trim(),
+        description: productToUpdate.description.trim(), category: categoryValue(productToUpdate.category),
+        ...result, price: Number(result.price ?? priceFloat) };
+      setSavedProducts(previous => ({ ...previous, [productId]: saved }));
+      if ((revisions.current[productId] ?? 0) === revision) {
+        setProducts(previous => previous.map(product => product.id === productId ? saved : product));
+        setPriceInputs(previous => ({ ...previous, [productId]: formatPrice(saved.price) }));
+      }
+      if (newImageFile) {
+        setFilesToUpload(previous => {
+          if (previous[productId] !== newImageFile) return previous;
+          const next = { ...previous }; delete next[productId]; return next;
+        });
+        setPreviews(previous => {
+          if (previous[productId] !== previews[productId]) return previous;
+          URL.revokeObjectURL(previous[productId]);
+          const next = { ...previous }; delete next[productId]; return next;
+        });
+      }
 
-      // Atualiza o valor exibido após salvar
-      handleChange(productId, "price", priceFloat);
-
-      setPriceInputs((prev) => ({
-        ...prev,
-        [productId]: formatPrice(priceFloat),
-      }));
-
-      // Busca novamente os dados atualizados no backend
-      setRefreshKey((prev) => prev + 1);
     } catch (error) {
+      if (scopeRef.current !== saveScope) return;
       console.error("Erro ao atualizar produto:", error);
 
       toast.error(
@@ -268,10 +324,11 @@ export default function EditProduct() {
           : "Falha ao atualizar o produto.",
       );
     } finally {
-      setLoadingProductId(null);
+      if (scopeRef.current === saveScope) setLoadingProductId(null);
     }
   }
 
+  const categories = categorySuggestions(products, lanchoneteProfile?.id);
   const filteredProducts = products.filter((product) =>
     product.name.toLowerCase().includes(search.toLowerCase()),
   );
@@ -281,6 +338,7 @@ export default function EditProduct() {
 
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-8 sm:px-6 lg:px-10">
+      {unsaved.dialog}
       <div className="mx-auto max-w-6xl">
         {/* CABEÇALHO */}
         <header className="mb-8">
@@ -310,6 +368,8 @@ export default function EditProduct() {
             </div>
           </div>
         </header>
+
+        <ProductNavigation active="edit" />
 
         {/* BUSCA */}
         <div className="mb-7 flex flex-col gap-3 sm:flex-row">
@@ -361,7 +421,7 @@ export default function EditProduct() {
                 <h2 className="font-semibold text-slate-900">{product.name}</h2>
                 <Link className="text-sm font-semibold text-orange-700 hover:underline"
                   href={`/dashboard/product?draft=${encodeURIComponent(product.id)}`}>
-                  Editar configuração
+                  Editar produto
                 </Link>
               </article>
             ) : (
@@ -452,6 +512,7 @@ export default function EditProduct() {
                         inputMode="decimal"
                         value={priceInputs[product.id] ?? ""}
                         onChange={(e) => {
+                          touch(product.id);
                           setPriceInputs((prev) => ({
                             ...prev,
                             [product.id]: e.target.value,
@@ -478,6 +539,8 @@ export default function EditProduct() {
                     </p>
                   </div>
 
+                  <CategoryField className={inputClass} suggestions={categories}
+                    value={product.category ?? ""} onChange={event => handleChange(product.id, "category", event.target.value)} />
                   {/* AÇÕES */}
                   <div className="border-t border-slate-100 pt-5">
                     <button

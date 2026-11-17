@@ -1,5 +1,6 @@
 "use client";
-import chatApi from "@/app/util/chatApi";
+import { isAxiosError, isCancel } from "axios";
+import chatApi, { chatCredentialKey } from "@/app/util/chatApi";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
@@ -28,6 +29,7 @@ import { formatReal } from "@/app/money";
 import api from "@/app/util/api";
 import socket from "@/app/components/Socket";
 import { customerOrderKey, watchCustomerSessionChanges } from "@/app/util/customerStorage";
+import { ALL_CATEGORIES, filterMenuProducts, menuCategories } from "./menuCategories";
 import ProductConfigurationDialog from "./ProductConfigurationDialog";
 import { cartLineKey, restoreCart } from "@/app/util/checkout";
 import { joinChat, leaveChat } from "@/app/util/chatRooms";
@@ -56,10 +58,12 @@ export default function Client() {
   const [produtos, setProdutos] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [search, setSearch] = useState("");
+  const [categorySelection, setCategorySelection] = useState({ restaurantId: idClient, key: ALL_CATEGORIES });
   const [configuring, setConfiguring] = useState<Product | null>(null);
 
   const [isOpen, setIsOpen] = useState(false);
-  const [chatId, setChatId] = useState<string | null>(null);
+  const [chatContext, setChatContext] = useState<{ restaurantId: string; chatId: string; credential: string } | null>(null);
+  const chatId = chatContext?.restaurantId === idClient ? chatContext.chatId : null;
   const [messages, setMessages] = useState<Message[]>([]);
 
   const [store, setStore] = useState<LanchoneteProfile>({
@@ -176,71 +180,66 @@ export default function Client() {
     window.location.reload();
   }), [idClient]);
 
-  // Busca o chat associado ao pedido anterior.
+  // Recover only the order/credential pair captured for this restaurant.
   useEffect(() => {
-    if (!idClient) return;
+    const controller = new AbortController();
+    setChatContext(null);
+    setMessages([]);
 
-    const savedOrder = localStorage.getItem(customerOrderKey(idClient));
-
-    if (!savedOrder) return;
-
-    let cancelled = false;
-
-    async function loadChat(savedOrder: string) {
+    async function loadChat() {
       try {
-        let orderId = savedOrder;
+        if (!idClient) return;
+        const savedOrder = localStorage.getItem(customerOrderKey(idClient));
+        const credential = localStorage.getItem(chatCredentialKey(idClient));
+        if (!savedOrder?.trim() || !credential?.trim()) return;
+        let orderId: unknown;
+        try { orderId = JSON.parse(savedOrder); }
+        catch { orderId = savedOrder; }
+        if (typeof orderId !== "string" || !orderId.trim()) return;
 
-        try {
-          const parsed = JSON.parse(savedOrder);
-
-          if (typeof parsed === "string") {
-            orderId = parsed;
-          }
-        } catch {
-          orderId = savedOrder.replace(/^"|"$/g, "");
-        }
-
-        const response = await chatApi.get(`/chat/${orderId}`);
-
-        if (!cancelled && response.data?.chat_id) {
-          setChatId(response.data.chat_id);
+        const response = await chatApi.get(`/chat/${encodeURIComponent(orderId.trim())}`, {
+          signal: controller.signal,
+          headers: { "x-chat-credential": credential },
+        });
+        if (!controller.signal.aborted && typeof response.data?.chat_id === "string" && response.data.chat_id) {
+          setChatContext({ restaurantId: idClient, chatId: response.data.chat_id, credential });
         }
       } catch (error) {
-        console.error("Erro ao carregar chat:", error);
+        if (controller.signal.aborted || isCancel(error)) return;
+        const status = isAxiosError(error) ? error.response?.status : undefined;
+        if (status === 401 || status === 403) return;
+        // Axios errors contain request headers: never log the error object.
+        console.error("Não foi possível recuperar o chat do pedido.", { status: status ?? "network-or-unexpected" });
       }
     }
 
-    void loadChat(savedOrder);
-
-    return () => {
-      cancelled = true;
-    };
+    void loadChat();
+    return () => controller.abort();
   }, [idClient]);
 
-  // Busca mensagens existentes.
+  // Messages use the same captured credential as the authorized chat lookup.
   useEffect(() => {
-    if (!chatId) return;
-
-    let cancelled = false;
-
+    if (!chatId || !chatContext) return;
+    const controller = new AbortController();
+    const currentChatId = chatId;
+    const credential = chatContext.credential;
     async function loadMessages() {
       try {
-        const response = await chatApi.get<Message[]>(`/message/${chatId}`);
-
-        if (!cancelled) {
-          setMessages(response.data);
-        }
+        const response = await chatApi.get<Message[]>(`/message/${encodeURIComponent(currentChatId)}`, {
+          signal: controller.signal,
+          headers: { "x-chat-credential": credential },
+        });
+        if (!controller.signal.aborted) setMessages(response.data);
       } catch (error) {
-        console.error("Erro ao buscar mensagens:", error);
+        if (controller.signal.aborted || isCancel(error)) return;
+        const status = isAxiosError(error) ? error.response?.status : undefined;
+        if (status === 401 || status === 403) return;
+        console.error("Não foi possível carregar as mensagens do chat.", { status: status ?? "network-or-unexpected" });
       }
     }
-
-    loadMessages();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [chatId]);
+    void loadMessages();
+    return () => controller.abort();
+  }, [chatId, chatContext]);
 
   // Atualiza as mensagens do chat em tempo real.
   useEffect(() => {
@@ -323,17 +322,14 @@ export default function Client() {
     saveCart(updatedCart);
   }
 
-  const filteredProducts = useMemo(() => {
-    const term = search.trim().toLowerCase();
-
-    if (!term) return produtos;
-
-    return produtos.filter((product) =>
-      `${product.name} ${product.description ?? ""}`
-        .toLowerCase()
-        .includes(term),
-    );
-  }, [produtos, search]);
+  const categories = useMemo(() => menuCategories(produtos, idClient), [produtos, idClient]);
+  const selectedCategory = categorySelection.restaurantId === idClient &&
+    categories.some(category => category.key === categorySelection.key)
+    ? categorySelection.key : ALL_CATEGORIES;
+  const filteredProducts = useMemo(
+    () => filterMenuProducts(produtos, idClient, selectedCategory, search),
+    [produtos, idClient, selectedCategory, search],
+  );
 
   const cartQuantity = useMemo(
     () => cart.reduce((total, item) => total + item.quantity, 0),
@@ -533,6 +529,22 @@ export default function Client() {
             </div>
           </div>
 
+          {isOpen && (
+            <nav aria-label="Categorias do cardápio" className="mt-5 flex max-w-full gap-2 overflow-x-auto pb-3">
+              {categories.map(category => (
+                <button key={category.key} type="button" aria-pressed={selectedCategory === category.key}
+                  onClick={() => setCategorySelection({ restaurantId: idClient, key: category.key })}
+                  className={`shrink-0 whitespace-nowrap rounded-full border px-4 py-2.5 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 ${
+                    selectedCategory === category.key
+                      ? "border-orange-500 bg-orange-500 text-white"
+                      : "border-slate-200 bg-white text-slate-700 hover:border-orange-300 hover:bg-orange-50"
+                  }`}>
+                  {category.label}
+                </button>
+              ))}
+            </nav>
+          )}
+
           {/* LISTA DE PRODUTOS */}
           {!isOpen ? (
             <div className="mt-8 flex flex-col items-center rounded-2xl border border-slate-200 bg-white px-6 py-16 text-center">
@@ -554,7 +566,7 @@ export default function Client() {
               <h3 className="mt-4 font-semibold">Nenhum produto encontrado</h3>
 
               <p className="mt-2 text-sm text-slate-500">
-                Tente pesquisar por outro nome.
+                Tente outra busca ou selecione outra categoria.
               </p>
             </div>
           ) : (

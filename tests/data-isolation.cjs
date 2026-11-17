@@ -104,7 +104,7 @@ test('configured product proxies require a cookie and forward scoped operations 
     calls.push(config);
     assert.equal(config.headers.Authorization, 'Bearer owner-A');
     if (config.method === 'POST') return { status: 201, data: { product: { id: productId, published: false } } };
-    if (config.url === '/product-templates') return { status: 200, data: [{ slug: 'pizza' }] };
+    if (config.url === '/products/templates') return { status: 200, data: [{ slug: 'pizza' }] };
     throw { response: { status: 404, data: { error: 'Produto não encontrado.' } } };
   });
   const { GET: list } = load(`${files}/templates/route.ts`, { '../configuredProxy': proxy });
@@ -128,7 +128,7 @@ test('configured product proxies require a cookie and forward scoped operations 
   const missing = await configuration(null, { params: Promise.resolve({ productId }) });
   assert.equal(missing.status, 404);
   assert.deepEqual(calls.map(call => call.url), [
-    '/product-templates', '/products/from-template', `/products/${productId}/admin-configuration`,
+    '/products/templates', '/products/from-template', `/products/${productId}/admin-configuration`,
   ]);
 });
 
@@ -152,4 +152,53 @@ test('configured editor forwards PATCH operations with the session and preserves
   assert.equal(calls[0].url, `/products/${productId}/admin-configuration`);
   assert.equal(response.status, 422);
   assert.deepEqual(await response.json(), { error: 'Configuração inválida.', details: ['O mínimo exige duas opções.'] });
+});
+
+test('product deletion proxy requires admin cookie and same origin, strips tenant fields and preserves conflicts', async () => {
+  const id = '00000000-0000-4000-8000-000000000010';
+  const calls = [];
+  const request = (origin = 'http://localhost') => new NextRequest('http://localhost/api/product', {
+    method: 'DELETE', headers: { origin }, body: JSON.stringify({ product_id: id, restaurant_id: 'B' }),
+  });
+  const anonymous = productRoute(undefined, () => assert.fail('Anonymous deletion forwarded'));
+  assert.equal((await anonymous.DELETE(request())).status, 401);
+  const h = productRoute('owner-A', async config => {
+    calls.push(config);
+    assert.equal(config.method, 'DELETE');
+    assert.equal(config.url, '/product/delete');
+    assert.equal(config.headers.Authorization, 'Bearer owner-A');
+    assert.deepEqual(JSON.parse(JSON.stringify(config.data)), { product_id: id });
+    throw { response: { status: 409, data: { error: 'Produto com pedidos. Desative o produto.' } } };
+  });
+  assert.equal((await h.DELETE(request('https://evil.example'))).status, 403);
+  assert.equal(calls.length, 0);
+  const response = await h.DELETE(request());
+  assert.equal(response.status, 409);
+  assert.match((await response.json()).error, /Desative/);
+});
+
+test('global template proxy forwards optional category without forwarding tenant or template JSON',async()=>{
+  const calls=[];
+  const {POST}=load('src/app/api/product/from-template/route.ts',{'../configuredProxy':{
+    configuredProductError:(error,status)=>NextResponse.json({error},{status}),
+    forwardConfiguredProduct:async(path,body)=>{calls.push({path,body});return NextResponse.json({product:{category:body.category??null}},{status:201});}
+  }});
+  for(const body of [{templateSlug:' cola ',category:'Refrigerantes',restaurantId:'B',configuration:{}},{templateSlug:'cola',category:null},{templateSlug:'cola'}]){
+    const response=await POST(new NextRequest('http://localhost/api/product/from-template',{method:'POST',headers:{origin:'http://localhost'},body:JSON.stringify(body)}));
+    assert.equal(response.status,201);const sent=calls.at(-1).body;
+    assert.equal('restaurantId' in sent,false);assert.equal('configuration' in sent,false);
+    assert.equal(sent.category,body.category);assert.equal(sent.templateSlug,body.templateSlug.trim());
+  }
+});
+
+test('simple multipart proxy preserves category removal and Unicode without changing uploaded image',async()=>{
+  for(const category of ['', 'Águas 🍶']){
+    const form=new FormData();form.set('product_id','p');form.set('category',category);form.set('file',new File(['bytes'],'image.png',{type:'image/png'}));
+    const {PUT}=productRoute('owner-A',async config=>{
+      const decoded=await new Response(config.data,{headers:{'Content-Type':config.headers['Content-Type']}}).formData();
+      assert.equal(decoded.get('category'),category);assert.equal(await decoded.get('file').text(),'bytes');
+      return {status:200,data:{category:category||null}};
+    });
+    const response=await PUT(new NextRequest('http://localhost/api/product',{method:'PUT',body:form}));assert.equal(response.status,200);
+  }
 });

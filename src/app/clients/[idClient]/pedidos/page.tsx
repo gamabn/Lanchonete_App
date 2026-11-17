@@ -28,8 +28,10 @@ import { type AddressData, type Bairro } from "./component";
 import CustomerIdentification from "./component/CustomerIdentification";
 import { currentCustomer, CustomerIdentificationError, type IdentifiedCustomer } from "@/app/util/customerIdentification";
 import { customerOrderKey, watchCustomerSessionChanges } from "@/app/util/customerStorage";
+import CustomerEmailVerification from "./component/CustomerEmailVerification";
 import { cartLineKey, orderItems, refreshCartProducts, lerValorEmReais, readDeliveryFee, restoreCart } from "@/app/util/checkout";
 import api from "@/app/util/api";
+import { fulfillmentSelection, pickupLocation, hasDeliveryAddress, type CheckoutFulfillment } from "@/app/util/checkoutFulfillment";
 
 type PaymentMethod = "" | "Dinheiro" | "Cartao" | "Pix";
 
@@ -39,6 +41,9 @@ const QUANTITY_KEY = "product_quantities";
 export default function Car() {
   const { idClient } = useParams<{ idClient: string }>();
   const router = useRouter();
+  const [fulfillment, setFulfillment] = useState<CheckoutFulfillment>("DELIVERY");
+  const restaurantScope = useRef(idClient);
+  restaurantScope.current = idClient;
   const [loading, setLoading] = useState(true);
   const [finalizando, setFinalizando] = useState(false);
   const submitting = useRef(false);
@@ -62,7 +67,9 @@ export default function Car() {
 
     async function carregar() {
       setLoading(true);
-      setLoadingBairros(true);
+      submitting.current = false;
+      setFinalizando(false);
+      setFulfillment("DELIVERY");
       setBairros([]);
       setStore({});
       setAddress(null);
@@ -82,33 +89,17 @@ export default function Car() {
         localStorage.removeItem("customerInfo");
         localStorage.removeItem("order");
 
-        const resultados = await Promise.allSettled([
-          fetch(`/api/store/${idClient}`, { signal: AbortSignal.timeout(15000) }).then(async (res) => {
-            if (!res.ok) throw new Error(`Loja: HTTP ${res.status}`);
-            return res.json() as Promise<LanchoneteProfile>;
-          }),
-          api.get<Bairro[]>(`/bairros/public/${idClient}`, { timeout: 15000 }),
-        ]);
-        if (!ativo) return;
-        if (resultados[0].status === "fulfilled") setStore(resultados[0].value);
-        else console.error("Erro ao carregar loja:", resultados[0].reason);
-        if (resultados[1].status === "fulfilled") {
-          setBairros(
-            Array.isArray(resultados[1].value.data)
-              ? resultados[1].value.data
-              : [],
-          );
-        } else {
-          console.error("Erro ao carregar bairros:", resultados[1].reason);
-          toast.error("Não foi possível carregar os bairros de entrega.");
-        }
+        const response = await fetch(`/api/store/${encodeURIComponent(idClient)}`, { cache: "no-store", signal: AbortSignal.timeout(15000) });
+        if (!response.ok) throw new Error("Não foi possível consultar esta loja.");
+        const loadedStore = await response.json() as LanchoneteProfile;
+        if (loadedStore.id !== idClient) throw new Error("Restaurante inválido.");
+        if (ativo) setStore(loadedStore);
       } catch (error) {
-        console.error("Erro ao carregar carrinho:", error);
-        toast.error("Erro ao carregar seu carrinho.");
+        console.error("Falha ao carregar o checkout:", error);
+        toast.error("Não foi possível carregar os dados do checkout. Tente novamente.");
       } finally {
         if (ativo) {
           setLoading(false);
-          setLoadingBairros(false);
         }
       }
     }
@@ -117,6 +108,25 @@ export default function Car() {
       ativo = false;
     };
   }, [idClient]);
+
+  useEffect(() => {
+    let active = true;
+    if (fulfillment !== "DELIVERY") { setLoadingBairros(false); return; }
+    setLoadingBairros(true);
+    api.get<Bairro[]>(`/bairros/public/${idClient}`, { timeout: 15000 }).then(result => {
+      if (active) setBairros(Array.isArray(result.data) ? result.data : []);
+    }).catch(() => {
+      if (active) { setBairros([]); toast.error("Não foi possível carregar os bairros de entrega."); }
+    }).finally(() => { if (active) setLoadingBairros(false); });
+    return () => { active = false; };
+  }, [idClient, fulfillment]);
+
+  function changeFulfillment(mode: CheckoutFulfillment) {
+    if (mode === fulfillment || submitting.current) return;
+    sessionVersion.current += 1;
+    setFulfillment(mode);
+    setActive(false);
+  }
 
   useEffect(() => {
     sessionVersion.current += 1;
@@ -177,7 +187,10 @@ export default function Car() {
   );
 
   // O código existente utiliza frete em reais, assim como os preços dos produtos.
-  const frete = bairroSelecionado ? readDeliveryFee(bairroSelecionado.frete) : null;
+  const pickup = pickupLocation(store, idClient);
+  const storeAvailable = store.id === idClient && store.status === true;
+  const deliveryAddressComplete = hasDeliveryAddress(address);
+  const frete = fulfillment === "PICKUP" ? 0 : bairroSelecionado ? readDeliveryFee(bairroSelecionado.frete) : null;
   const freteValido = frete !== null && Number.isFinite(frete) && frete >= 0;
   const subtotal = car.reduce(
     (soma, item) => soma + Math.round(Number(item.price) * 100) * (count[cartLineKey(item)] || 0),
@@ -193,12 +206,14 @@ export default function Car() {
     car.length > 0 &&
     totalItens > 0 &&
     Number.isFinite(totalGeral) &&
-    Boolean(address) && Boolean(identifiedCustomer) &&
-    freteValido &&
+    Boolean(identifiedCustomer && identifiedCustomer.restaurant_id === idClient) &&
+    storeAvailable &&
+    (fulfillment === "PICKUP" ? Boolean(pickup) : deliveryAddressComplete && freteValido && !loadingBairros) &&
     Boolean(payments) &&
     !finalizando && !submissionUncertain;
 
   function handleIdentified(data: AddressData, customer: IdentifiedCustomer) {
+    if (customer.restaurant_id !== idClient || restaurantScope.current !== idClient) return;
     sessionVersion.current += 1;
     setAddress(data);
     setIdentifiedCustomer(customer);
@@ -213,12 +228,16 @@ export default function Car() {
 
   async function handleFinalizar() {
     if (submitting.current || submissionUncertain) return;
-    if (!address || !identifiedCustomer || identifiedCustomer.restaurant_id !== idClient) {
-      toast.error("Confirme sua identificação e o endereço de entrega.");
+    if (!identifiedCustomer || identifiedCustomer.restaurant_id !== idClient || (fulfillment === "DELIVERY" && !deliveryAddressComplete)) {
+      toast.error(fulfillment === "PICKUP" ? "Confirme sua identificação." : "Confirme sua identificação e o endereço de entrega.");
       setActive(true);
       return;
     }
-    if (!freteValido) {
+    if (!storeAvailable || (fulfillment === "PICKUP" && !pickup)) {
+      toast.error("Restaurante ou endereço de retirada indisponível. Atualize os dados da loja.");
+      return;
+    }
+    if (fulfillment === "DELIVERY" && (!freteValido || loadingBairros)) {
       toast.error("Selecione um bairro com taxa de entrega disponível.");
       setActive(true);
       return;
@@ -256,6 +275,9 @@ export default function Car() {
       const refreshed = await refreshCartProducts(itemsInCart, idClient);
       const changed = refreshed.some((item, index) =>
         Math.round(Number(item.price) * 100) !== Math.round(Number(itemsInCart[index].price) * 100));
+      if (restaurantScope.current !== idClient || sessionVersion.current !== confirmedVersion) {
+        throw new CustomerIdentificationError("SESSION_CHANGED", "O checkout mudou. Confira os dados novamente.");
+      }
       atualizarCarrinho(refreshed, count);
       if (changed) {
         toast.error("Os preços foram atualizados. Confira o novo total e finalize novamente.");
@@ -263,7 +285,7 @@ export default function Car() {
       }
 
       const customer = await currentCustomer(idClient);
-      if (!customer || customer.id !== identifiedCustomer.id || customer.name !== identifiedCustomer.name ||
+      if (!customer || customer.restaurant_id !== idClient || restaurantScope.current !== idClient || customer.id !== identifiedCustomer.id || customer.name !== identifiedCustomer.name ||
           customer.phone !== identifiedCustomer.phone || sessionVersion.current !== confirmedVersion) {
         throw new CustomerIdentificationError("SESSION_CHANGED", "Confirme novamente quem está fazendo o pedido.");
       }
@@ -274,7 +296,7 @@ export default function Car() {
         method: "POST", credentials: "same-origin",
         headers: { "Content-Type": "application/json", "X-Customer-Id": identifiedCustomer.id }, signal: AbortSignal.timeout(30000),
         body: JSON.stringify({
-          bairro_id: bairroSelecionado?.id,
+          ...fulfillmentSelection(fulfillment, bairroSelecionado?.id),
           items: orderItems(refreshed, count),
           payment_method: payments,
           change_for: payments === "Dinheiro" && trocoPara.trim() ? String(valorTroco) : "0",
@@ -298,6 +320,10 @@ export default function Car() {
         if (typeof credential === "string") localStorage.setItem(chatCredentialKey(idClient), credential);
         localStorage.setItem(customerOrderKey(idClient), JSON.stringify(orderId));
       }
+      if (restaurantScope.current !== idClient) {
+        localStorage.removeItem(pendingKey);
+        return;
+      }
       localStorage.removeItem(CART_KEY);
       localStorage.removeItem(QUANTITY_KEY);
       localStorage.removeItem(pendingKey);
@@ -309,6 +335,7 @@ export default function Car() {
       router.push(`/clients/${idClient}`);
     } catch (error) {
       console.error("Erro ao finalizar pedido:", error);
+      if (restaurantScope.current !== idClient) return;
       if (requestSent) {
         setSubmissionUncertain(true);
         toast.error("Não foi possível confirmar a resposta. Confira com o restaurante se o pedido foi recebido antes de tentar novamente.");
@@ -321,12 +348,14 @@ export default function Car() {
         toast.error(error instanceof Error ? error.message : "Não foi possível finalizar o pedido. Tente novamente.");
       }
     } finally {
-      submitting.current = requestSent;
-      setFinalizando(false);
+      if (restaurantScope.current === idClient) {
+        submitting.current = requestSent;
+        setFinalizando(false);
+      }
     }
   }
 
-  if (loading)
+  if (loading || car.some(item => item.restaurant_id !== idClient))
     return (
       <main className="flex min-h-screen flex-col items-center justify-center gap-3 bg-slate-50 text-slate-700">
         <Loader2 className="h-10 w-10 animate-spin text-orange-500" />
@@ -346,7 +375,7 @@ export default function Car() {
           </Link>
           <div className="flex items-center gap-2 text-sm font-bold text-slate-800">
             <ShoppingBag size={19} className="text-orange-500" />{" "}
-            {store.name || "Meu pedido"}
+            {store.id === idClient && typeof store.name === "string" ? store.name : "Meu pedido"}
           </div>
         </div>
       </header>
@@ -358,9 +387,14 @@ export default function Car() {
             Meu carrinho
           </h1>
           <p className="mt-2 text-sm text-slate-500">
-            Confira seus produtos, escolha a entrega e finalize seu pedido.
+            Confira seus produtos, escolha entrega ou retirada e finalize seu pedido.
           </p>
         </div>
+
+        {!storeAvailable && <div role="alert" className="mb-5 rounded-xl border border-orange-200 bg-orange-50 p-4 text-sm">
+          <p>Restaurante indisponível ou não foi possível consultar esta loja.</p>
+          <button type="button" disabled={finalizando} onClick={() => window.location.reload()} className="mt-2 font-semibold underline">Atualizar dados da loja</button>
+        </div>}
 
         {submissionUncertain && (
           <div role="alert" className="mb-5 space-y-3 rounded-xl border border-orange-300 bg-orange-50 p-4 text-sm text-orange-950">
@@ -492,10 +526,9 @@ export default function Car() {
               <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
                 <div className="flex items-center justify-between gap-3">
                   <h2 className="flex items-center gap-2 text-lg font-bold">
-                    <MapPin size={21} className="text-orange-500" /> Identificação e
-                    entrega
+                    <MapPin size={21} className="text-orange-500" /> Identificação e recebimento
                   </h2>
-                  {address && (
+                  {identifiedCustomer?.restaurant_id === idClient && (
                     <button
                       type="button"
                       onClick={() => setActive(true)}
@@ -505,12 +538,25 @@ export default function Car() {
                     </button>
                   )}
                 </div>
-                {address ? (
+                <fieldset className="mt-4">
+                  <legend className="text-sm font-semibold">Como deseja receber?</legend>
+                  <div className="mt-2 grid grid-cols-2 gap-3">
+                    {([{mode:"DELIVERY",label:"ENTREGA"},{mode:"PICKUP",label:"RETIRADA"}] as const).map(({mode,label}) =>
+                      <button key={mode} type="button" aria-pressed={fulfillment === mode} onClick={() => changeFulfillment(mode)}
+                        className={`rounded-xl border p-3 font-semibold ${fulfillment === mode ? "border-orange-500 bg-orange-50 text-orange-700" : "border-slate-200"}`}>{label}</button>)}
+                  </div>
+                </fieldset>
+                {fulfillment === "PICKUP" && <div className="mt-4 rounded-xl bg-slate-50 p-4 text-sm">
+                  <p className="font-semibold">Retirada no estabelecimento</p>
+                  {pickup ? <><p>{pickup.name}</p><p>{pickup.street}, {pickup.number}</p><p>Bairro: {pickup.neighborhood}</p><p>Cidade: {pickup.city}</p></>
+                    : <p role="alert">Endereço de retirada indisponível. Atualize os dados da loja antes de continuar.</p>}
+                </div>}
+                {identifiedCustomer?.restaurant_id === idClient && (fulfillment === "PICKUP" || deliveryAddressComplete) ? (
                   <div className="mt-4 rounded-xl border border-orange-100 bg-orange-50 p-4">
                     <p className="font-semibold text-slate-800">
-                      {address.name}
+                      {identifiedCustomer.name}
                     </p>
-                    <p className="mt-1 text-sm leading-6 text-slate-600">
+                    {fulfillment === "DELIVERY" && address && <><p className="mt-1 text-sm leading-6 text-slate-600">
                       {address.rua}, {address.numero} — {address.bairro},{" "}
                       {address.cidade}
                     </p>
@@ -519,10 +565,13 @@ export default function Car() {
                         {address.complemento}
                       </p>
                     )}
+                    </>}
                     <p className="mt-1 text-xs text-slate-500">
-                      Telefone: {address.phone}
+                      Telefone: {identifiedCustomer.phone}
                     </p>
-                    {!freteValido && (
+                    {identifiedCustomer && <CustomerEmailVerification
+                      key={`${idClient}:${identifiedCustomer.id}`} restaurantId={idClient} />}
+                    {fulfillment === "DELIVERY" && !freteValido && (
                       <p className="mt-3 text-sm font-medium text-red-600">
                         O bairro salvo não está disponível. Altere o endereço
                         para continuar.
@@ -533,14 +582,14 @@ export default function Car() {
                   <div className="mt-4 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-5 text-center">
                     <MapPin size={27} className="mx-auto text-slate-400" />
                     <p className="mt-2 text-sm text-slate-500">
-                      Confirme sua identificação e o endereço de entrega.
+                      {fulfillment === "PICKUP" ? "Confirme seu nome e telefone para retirada." : "Confirme sua identificação e o endereço de entrega."}
                     </p>
                     <button
                       type="button"
                       onClick={() => setActive(true)}
                       className="mt-4 rounded-xl bg-orange-500 px-5 py-3 text-sm font-semibold text-white hover:bg-orange-600"
                     >
-                      Identificar e informar entrega
+                      {fulfillment === "PICKUP" ? "Identificar para retirada" : "Identificar e informar entrega"}
                     </button>
                   </div>
                 )}
@@ -617,7 +666,7 @@ export default function Car() {
                     <span
                       className={`font-semibold ${freteValido && frete === 0 ? "text-green-600" : "text-slate-800"}`}
                     >
-                      {!address
+                      {fulfillment === "PICKUP" ? formatarPreco(0) : !deliveryAddressComplete
                         ? "Informe o bairro"
                         : !freteValido
                           ? "Indisponível"
@@ -626,7 +675,7 @@ export default function Car() {
                             : formatarPreco(frete)}
                     </span>
                   </div>
-                  {bairroSelecionado && (
+                  {fulfillment === "DELIVERY" && bairroSelecionado && (
                     <p className="text-xs text-slate-500">
                       Entrega para {bairroSelecionado.bairro}
                     </p>
@@ -656,12 +705,12 @@ export default function Car() {
                     </>
                   )}
                 </button>
-                {!address && (
+                {(!identifiedCustomer || (fulfillment === "DELIVERY" && !deliveryAddressComplete)) && (
                   <p className="mt-3 text-center text-xs text-slate-500">
-                    Adicione o endereço para continuar.
+                    {fulfillment === "PICKUP" ? "Confirme sua identificação para continuar." : "Adicione o endereço para continuar."}
                   </p>
                 )}
-                {address && !payments && (
+                {identifiedCustomer && !payments && (
                   <p className="mt-3 text-center text-xs text-slate-500">
                     Escolha a forma de pagamento para continuar.
                   </p>
@@ -681,13 +730,14 @@ export default function Car() {
           className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/65 p-3 backdrop-blur-sm"
         >
           <CustomerIdentification
-            key={idClient}
+            key={`${idClient}:${fulfillment}`}
+            fulfillmentType={fulfillment}
             restaurantId={idClient}
             onIdentified={handleIdentified}
             onLogout={handleCustomerLogout}
             onClose={() => setActive(false)}
-            initialData={address}
-            initialCustomerId={identifiedCustomer?.id}
+            initialData={identifiedCustomer?.restaurant_id === idClient ? address : null}
+            initialCustomerId={identifiedCustomer?.restaurant_id === idClient ? identifiedCustomer.id : undefined}
             bairros={bairros}
             loadingBairros={loadingBairros}
           />

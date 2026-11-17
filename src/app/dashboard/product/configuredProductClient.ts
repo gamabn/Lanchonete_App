@@ -9,6 +9,7 @@ export interface Configuration {
     id: string;
     name: string;
     published: boolean;
+    category?: string | null;
     description: string | null;
     price: string;
     image_url: string | null;

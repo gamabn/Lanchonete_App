@@ -7,7 +7,7 @@ export interface CustomerSession {
   restaurant_id: string;
   name: string;
   phone: string;
-  city: string;
+  city: string | null;
   street?: string | null;
   number?: string | null;
   neighborhood?: string | null;

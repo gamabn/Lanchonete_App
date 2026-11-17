@@ -85,6 +85,19 @@ export function PUT(request: NextRequest) {
   return forwardMultipart(request, "PUT");
 }
 
+export async function DELETE(request: NextRequest) {
+  if (request.headers.get("origin") !== request.nextUrl.origin) return productError("Origem inválida.", 403);
+  const token = (await cookies()).get("token")?.value;
+  if (!token) return productError("Não autenticado.", 401);
+  const body = await request.json().catch(() => null);
+  if (typeof body?.product_id !== "string") return productError("ID do produto inválido.", 400);
+  try {
+    const response = await api.request({ method: "DELETE", url: "/product/delete",
+      data: { product_id: body.product_id }, headers: { Authorization: `Bearer ${token}` } });
+    return NextResponse.json(response.data, { status: response.status, headers: { "Cache-Control": "no-store" } });
+  } catch (error) { return backendError(error); }
+}
+
 export async function GET(request: NextRequest) {
   const token = (await cookies()).get("token")?.value;
   if (!token) {
