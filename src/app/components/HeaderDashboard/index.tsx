@@ -1,282 +1,312 @@
 "use client";
+
 import Link from "next/link";
-import { useState, useEffect, use } from "react";
+import { useState, useEffect, useContext } from "react";
+import { FiLogOut, FiShoppingBag } from "react-icons/fi";
 import {
-  FiLogOut,
-  FiLoader,
-  FiLock,
-  FiDollarSign,
-  FiUsers,
-  FiShoppingBag,
-} from "react-icons/fi";
-import {
-  CalendarCheck,
-  CalendarClock,
   ChartNoAxesCombined,
-  MapPinned,
   MessageCircleMore,
   FilePenLine,
   AlignJustify,
   House,
   UserRound,
   Smartphone,
+  X,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useContext } from "react";
+
 import { Context } from "@/app/Context";
-import { io } from "socket.io-client";
-import api from "@/app/util/api";
 import socket from "@/app/components/Socket";
 
-//const socket = io(proce);
-
-socket.on("connect", () => {
-  console.log("Conectado ao backend com id:", socket.id);
-});
-
 export function HeaderDashboard({ children }: { children: React.ReactNode }) {
-  const { user, lanchoneteProfile, logout } = useContext(Context);
+  const { lanchoneteProfile, logout } = useContext(Context);
+
   const [active, setActive] = useState(false);
-  const [isClient, setIsClient] = useState(false);
-  const [isOpen, setIsOpen] = useState<boolean>(false);
+  const [isOpen, setIsOpen] = useState(false);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
 
-  const router = useRouter();
+  // Busca o status da lanchonete quando o perfil estiver disponível
   useEffect(() => {
-    getStore();
-  }, []);
+    if (!lanchoneteProfile?.id) return;
 
-  async function getStore() {
-    if (lanchoneteProfile?.id) {
-      const res = await fetch(`/api/store/${lanchoneteProfile?.id}`);
-      const data = await res.json();
-      //console.log('loja do cliente',data)
+    let mounted = true;
 
-      setIsOpen(data.status);
+    async function getStore() {
+      try {
+        const res = await fetch(`/api/store/${lanchoneteProfile.id}`);
+
+        if (!res.ok) {
+          throw new Error("Erro ao buscar status da lanchonete.");
+        }
+
+        const data = await res.json();
+
+        if (mounted) {
+          setIsOpen(data.status);
+        }
+      } catch (error) {
+        console.error("Erro ao buscar loja:", error);
+      }
     }
-  }
 
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
-
-  useEffect(() => {
-    socket.on("statusUpdated", (data) => {
-      console.log("Status da loja (evento):", data.status); // ✅ mostra o valor real
-      setIsOpen(data.status);
-    });
+    getStore();
 
     return () => {
-      socket.off("statusUpdated");
+      mounted = false;
+    };
+  }, [lanchoneteProfile?.id]);
+
+  // Atualização do status recebida pelo Socket.IO
+  useEffect(() => {
+    function handleStatusUpdated(data: { status: boolean }) {
+      setIsOpen(data.status);
+    }
+
+    socket.on("statusUpdated", handleStatusUpdated);
+
+    return () => {
+      socket.off("statusUpdated", handleStatusUpdated);
     };
   }, []);
 
+  // Alternar status da lanchonete
   async function handleSwitch() {
-    setIsOpen(!isOpen);
+    if (updatingStatus) return;
+
+    const novoStatus = !isOpen;
+
+    setUpdatingStatus(true);
+    setIsOpen(novoStatus);
+
     try {
       const res = await fetch("/api/login", {
         method: "PATCH",
-        body: JSON.stringify({ status: !isOpen }),
+        body: JSON.stringify({ status: novoStatus }),
         headers: {
           "Content-Type": "application/json",
         },
       });
-    } catch (err) {
-      console.log(err);
+
+      if (!res.ok) {
+        throw new Error("Não foi possível atualizar o status.");
+      }
+    } catch (error) {
+      console.error("Erro ao atualizar status:", error);
+      setIsOpen(!novoStatus);
+    } finally {
+      setUpdatingStatus(false);
     }
   }
 
+  function closeMenu() {
+    setActive(false);
+  }
+
+  const menuItems = [
+    {
+      href: "/dashboard",
+      label: "Início",
+      icon: <House size={25} />,
+    },
+    {
+      href: "/dashboard/product",
+      label: "Produtos",
+      icon: <FiShoppingBag size={25} />,
+    },
+    {
+      href: "/dashboard/financas",
+      label: "Finanças",
+      icon: <ChartNoAxesCombined size={25} />,
+    },
+    {
+      href: "/dashboard/message",
+      label: "Mensagens",
+      icon: <MessageCircleMore size={25} />,
+    },
+    {
+      href: "/dashboard/profile",
+      label: "Perfil",
+      icon: <UserRound size={25} />,
+    },
+    {
+      href: "/dashboard/whatsapp",
+      label: "WhatsApp",
+      icon: <Smartphone size={25} />,
+    },
+    {
+      href: "/dashboard/editProduct",
+      label: "Editar produtos",
+      icon: <FilePenLine size={25} />,
+    },
+  ];
+
   return (
-    <div className="flex flex-col h-screen w-full">
-      <header className="w-full flex bg-orange-600 items-center px-2 py-4  h-20 shadow-sm max-sm:hidden">
-        <div className="w-full flex items-center  justify-between max-w-7xl mx-auto max-sm:justify-items-start max-sm:gap-6 ">
-          <div className="h-[60px] flex items-center gap-2">
-            <h1 className="text-white text-3xl font-bold">
+    <div className="flex flex-col h-screen w-full overflow-hidden">
+      {/* HEADER */}
+      <header className="relative z-30 w-full h-20 shrink-0 bg-orange-600 shadow-sm px-3">
+        <div className="w-full h-full flex items-center justify-between max-w-7xl mx-auto gap-3">
+          {/* Logo, menu e nome da lanchonete */}
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <button
+              type="button"
+              onClick={() => setActive(true)}
+              aria-label="Abrir menu lateral"
+              aria-expanded={active}
+              className="h-10 w-10 shrink-0 bg-black rounded-full flex items-center justify-center hover:bg-gray-800 transition"
+            >
+              <AlignJustify size={25} color="#ef8300" />
+            </button>
+
+            {lanchoneteProfile?.image_url && (
+              <img
+                src={lanchoneteProfile.image_url}
+                alt="Logo da lanchonete"
+                className="h-12 w-12 shrink-0 rounded-full object-cover border-2 border-white"
+              />
+            )}
+
+            <h1
+              title={lanchoneteProfile?.name || ""}
+              className="text-white text-base sm:text-xl md:text-2xl font-bold truncate min-w-0"
+            >
               {lanchoneteProfile?.name}
             </h1>
-            <img
-              src={lanchoneteProfile?.image_url}
-              alt="lanches"
-              className=" h-[60px] w-[60px] rounded-full"
-            />
           </div>
 
-          <label className="inline-flex items-center cursor-pointer ml-2">
-            <input
-              type="checkbox"
-              className="sr-only peer"
-              checked={isOpen}
-              onChange={handleSwitch}
-            />
-            <div
-              className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 
-                            dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 
-                            peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full 
-                            peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] 
-                            after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full 
-                            after:h-5 after:w-5 after:transition-all dark:border-gray-600 
-                            peer-checked:bg-blue-600 dark:peer-checked:bg-blue-600"
-            ></div>
-            <span className="ms-3 text-sm font-medium text-white dark:text-gray-300">
-              {isOpen ? "Aberto" : "Fechado"}
-            </span>
-          </label>
+          {/* Status e logout */}
+          <div className="flex items-center gap-2 sm:gap-5 shrink-0">
+            <label className="inline-flex items-center cursor-pointer gap-2">
+              <input
+                type="checkbox"
+                className="sr-only peer"
+                checked={isOpen}
+                disabled={updatingStatus}
+                onChange={handleSwitch}
+              />
 
-          <div className="flex items-baseline gap-6 max-sm:gap-6">
-            <Link
-              className="flex hover:bg-gray-700 rounded-full p-2 items-center justify-center"
-              href="/dashboard"
-            >
-              <House size={26} color="#fff" />
-            </Link>
-            <Link
-              className="flex hover:bg-gray-700 rounded-full p-2 items-center justify-center"
-              href="/dashboard/product" aria-label="Novo produto" title="Novo produto"
-            >
-              <FiShoppingBag color="#fff" size={26} />
-            </Link>
+              <div
+                className="relative w-11 h-6 bg-gray-200 rounded-full peer
+                peer-focus:ring-4 peer-focus:ring-blue-300
+                after:content-[''] after:absolute after:top-[2px]
+                after:start-[2px] after:bg-white after:border
+                after:border-gray-300 after:rounded-full
+                after:h-5 after:w-5 after:transition-all
+                peer-checked:bg-blue-600
+                peer-checked:after:translate-x-full"
+              />
 
-            <Link
-              className="flex hover:bg-gray-700 rounded-full p-2 items-center justify-center"
-              href="/dashboard/financas"
-            >
-              <ChartNoAxesCombined size={26} color="#fff" />
-            </Link>
-
-            <Link
-              className="flex hover:bg-gray-700 rounded-full p-2 items-center justify-center"
-              href="/dashboard/message"
-            >
-              <MessageCircleMore size={26} color="#fff" />
-            </Link>
-
-            <Link
-              className="flex hover:bg-gray-700 rounded-full p-2 items-center justify-center"
-              href="/dashboard/profile"
-            >
-              <UserRound size={26} color="#fff" />
-            </Link>
-            <Link className="flex hover:bg-gray-700 rounded-full p-2 items-center justify-center" href="/dashboard/whatsapp" aria-label="WhatsApp" title="WhatsApp">
-              <Smartphone size={26} color="#fff" />
-            </Link>
-
-            <Link
-              className="flex hover:bg-gray-700 rounded-full p-2 items-center justify-center"
-              href="/dashboard/editProduct" aria-label="Editar produto" title="Editar produto"
-            >
-              <FilePenLine size={26} color="#fff" />
-            </Link>
-
-            <Link
-              className="flex hover:bg-gray-700 rounded-full p-2 items-center justify-center"
-              href="/dashboard/bairros"
-            >
-              <MapPinned size={26} color="#fff" />
-            </Link>
+              <span className="text-xs sm:text-sm font-medium text-white">
+                {isOpen ? "Aberto" : "Fechado"}
+              </span>
+            </label>
 
             <button
+              type="button"
               onClick={() => logout()}
-              className="flex hover:bg-gray-700 rounded-full p-2 items-center justify-center"
+              aria-label="Sair"
+              title="Sair"
+              className="flex hover:bg-gray-700 rounded-full p-2 items-center justify-center transition"
             >
-              <FiLogOut size={26} color="black" />
+              <FiLogOut size={25} color="black" />
             </button>
           </div>
         </div>
       </header>
 
-      {/* Renderiza o menu lateral e o botão de toggle apenas no cliente para evitar erros de hidratação */}
-      {isClient && (
-        <>
-          <div
-            className={`fixed top-0 left-0 h-full bg-black z-50 transform transition-transform duration-300 ${
-              active ? "translate-x-0" : "-translate-x-full"
-            } w-[200px] max-sm:w-[80px] md:hidden`}
-          >
-            <div className="w-full  p-3 flex flex-col ">
-              <div className="mt-6 w-full flex flex-col items-center max-sm:items-start gap-3">
-                <button
-                  onClick={() => setActive(!active)}
-                  className="h-[30px] w-[35px] bg-black md:hidden  rounded-full flex items-center justify-center"
-                >
-                  <AlignJustify size={26} color="#ef8300" />
-                </button>
+      {/* FUNDO ESCURO DO MENU */}
+      <div
+        onClick={closeMenu}
+        aria-hidden="true"
+        className={`fixed inset-0 z-40 bg-black/50 transition-opacity duration-300 ${
+          active
+            ? "opacity-100 visible"
+            : "opacity-0 invisible pointer-events-none"
+        }`}
+      />
 
-                <div>
-                  <img
-                    src={lanchoneteProfile?.image_url}
-                    alt="Logo-Lanchonete"
-                    className="h-[30px] w-[30px] rounded-full"
-                  />
-                </div>
-
-                <Link className="flex  mt-3" href="/dashboard">
-                  <House size={26} color="#FFF" />
-                </Link>
-
-                <Link href="/dashboard/product" aria-label="Novo produto" title="Novo produto">
-                  <FiShoppingBag color="#FFF" size={26} />
-                </Link>
-
-                <Link href="/dashboard/financas">
-                  <ChartNoAxesCombined size={26} color="#FFF" />
-                </Link>
-
-                <Link href="/dashboard/message">
-                  <MessageCircleMore size={26} color="#fff" />
-                </Link>
-
-                <Link href="/dashboard/profile">
-                  <UserRound size={26} color="#fff" />
-                </Link>
-                <Link href="/dashboard/whatsapp" aria-label="WhatsApp" title="WhatsApp">
-                  <Smartphone size={26} color="#fff" />
-                </Link>
-
-                <Link href="/dashboard/editProduct" aria-label="Editar produto" title="Editar produto">
-                  <FilePenLine size={26} color="#fff" />
-                </Link>
-                <div
-                  className="flex flex-col items-center justify-center"
-                  onClick={handleSwitch}
-                >
-                  <input
-                    type="checkbox"
-                    className="sr-only peer"
-                    checked={isOpen}
-                    onChange={handleSwitch}
-                  />
-                  <div
-                    className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 
-                                dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 
-                                peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full 
-                                peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] 
-                                after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full 
-                                after:h-5 after:w-5 after:transition-all dark:border-gray-600 
-                                peer-checked:bg-blue-600 dark:peer-checked:bg-blue-600"
-                  ></div>
-                  <span className=" text-sm font-medium text-white dark:text-gray-300">
-                    {isOpen ? "Aberto" : "Fechado"}
-                  </span>
-                </div>
-
-                <button
-                  // onClick={signUpNewUser}
-                  onClick={() => logout()}
-                >
-                  <FiLogOut size={26} color="#ef8300" />
-                </button>
-              </div>
-            </div>
-          </div>
-
+      {/* MENU LATERAL */}
+      <aside
+        aria-label="Menu de navegação"
+        aria-hidden={!active}
+        className={`fixed top-0 left-0 z-50 h-screen
+        w-20 md:w-[120px] bg-black text-white
+        shadow-xl transform transition-transform duration-300 ease-in-out
+        ${active ? "translate-x-0" : "-translate-x-full"}`}
+      >
+        <div className="h-full w-full flex flex-col items-center py-5 overflow-y-auto">
+          {/* Botão fechar */}
           <button
-            onClick={() => setActive(!active)}
-            className="h-[30px] w-[35px] bg-black md:hidden absolute top-2 left-2 rounded-full flex items-center justify-center"
+            type="button"
+            onClick={closeMenu}
+            aria-label="Fechar menu"
+            className="h-10 w-10 flex items-center justify-center rounded-full hover:bg-gray-800 transition mb-6"
           >
-            <AlignJustify size={26} color="#ef8300" />
+            <X size={27} color="#ef8300" />
           </button>
-        </>
-      )}
-      <div className="flex-1 flex flex-col overflow-y-auto">{children}</div>
+
+          {/* Logo */}
+          {lanchoneteProfile?.image_url && (
+            <img
+              src={lanchoneteProfile.image_url}
+              alt="Logo da lanchonete"
+              className="h-10 w-10 rounded-full object-cover mb-6"
+            />
+          )}
+
+          {/* Navegação */}
+          <nav className="w-full flex flex-col items-center gap-6">
+            {menuItems.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                title={item.label}
+                aria-label={item.label}
+                onClick={closeMenu}
+                className="w-full flex items-center justify-center text-white hover:text-orange-500 transition"
+              >
+                {item.icon}
+              </Link>
+            ))}
+          </nav>
+
+          {/* Status da lanchonete */}
+          <div className="mt-auto flex flex-col items-center gap-2 pb-5">
+            <button
+              type="button"
+              onClick={handleSwitch}
+              disabled={updatingStatus}
+              title={isOpen ? "Fechar lanchonete" : "Abrir lanchonete"}
+              className={`w-11 h-6 rounded-full relative transition ${
+                isOpen ? "bg-blue-600" : "bg-gray-500"
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${
+                  isOpen ? "left-[22px]" : "left-0.5"
+                }`}
+              />
+            </button>
+
+            <span className="text-xs text-white">
+              {isOpen ? "Aberto" : "Fechado"}
+            </span>
+
+            <button
+              type="button"
+              onClick={() => logout()}
+              title="Sair"
+              aria-label="Sair"
+              className="mt-3 hover:text-orange-500 transition"
+            >
+              <FiLogOut size={25} color="#ef8300" />
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      {/* CONTEÚDO DO DASHBOARD */}
+      <main className="flex-1 flex flex-col min-h-0 overflow-y-auto">
+        {children}
+      </main>
     </div>
   );
 }
