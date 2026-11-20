@@ -12,20 +12,35 @@ export function leaveChat(socket: Socket, id: string) {
 export function joinChat(socket: Socket, id: string, onReady?: () => void) {
   leaveChat(socket, id);
   let rooms = active.get(socket);
-  if (!rooms) { rooms = new Map(); active.set(socket, rooms); }
+  if (!rooms) {
+    rooms = new Map();
+    active.set(socket, rooms);
+  }
   const registry = rooms;
   const membership: Membership = {};
   registry.set(id, membership);
   async function renew() {
     try {
-      const response = await chatApi.post<{ ticket: string }>("/chat/socket-ticket", { chat_id: id });
+      const response = await chatApi.post<{ ticket: string }>(
+        "/chat/socket-ticket",
+        { chat_id: id },
+      );
       if (registry.get(id) !== membership) return;
-      socket.emit("joinRoom", { ticket: response.data.ticket }, (result: { ok: boolean }) => {
-        if (result.ok && registry.get(id) === membership) onReady?.();
-      });
-      membership.timer = setTimeout(() => { void renew(); }, 240000);
+      socket.emit(
+        "joinRoom",
+        { ticket: response.data.ticket },
+        (result: { ok: boolean }) => {
+          if (result.ok && registry.get(id) === membership) onReady?.();
+        },
+      );
+      membership.timer = setTimeout(() => {
+        void renew();
+      }, 240000);
     } catch {
-      if (registry.get(id) === membership) membership.timer = setTimeout(() => { void renew(); }, 10000);
+      if (registry.get(id) === membership)
+        membership.timer = setTimeout(() => {
+          void renew();
+        }, 10000);
     }
   }
   void renew();

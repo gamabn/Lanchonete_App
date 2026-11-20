@@ -69,13 +69,17 @@ export class WhatsAppConnectionController {
   ) {
     // Native browser fetch must not receive the controller instance as its `this`.
     this.fetcher = dependencies.fetch ?? globalThis.fetch.bind(globalThis);
+
     this.now = dependencies.now ?? Date.now;
+
     this.schedule =
       dependencies.schedule ??
       ((callback, delay) => setTimeout(callback, delay));
+
     this.cancel =
       dependencies.cancel ??
       ((timer) => clearTimeout(timer as ReturnType<typeof setTimeout>));
+      
     this.visible = dependencies.visible ?? true;
     this.state.paused = !this.visible;
   }

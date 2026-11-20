@@ -48,6 +48,7 @@ export function WhatsAppPanel({
   const controller = useRef<WhatsAppConnectionController | null>(null);
   const expiredCallback = useRef(onExpired);
   expiredCallback.current = onExpired;
+
   useEffect(() => {
     setView(initialConnectionView());
     setInteractionError(null);
@@ -80,6 +81,7 @@ export function WhatsAppPanel({
       if (controller.current === current) controller.current = null;
     };
   }, [ownerId]);
+  
   const geometry = useMemo(() => {
     if (!view.qr?.qr) return null;
     try {
@@ -88,9 +90,13 @@ export function WhatsAppPanel({
       return null;
     }
   }, [view.qr?.qr]);
+
   const phase = view.connection?.status;
+
   const connected = phase === "connected",
+
     legacy = phase === "legacy_active";
+
   const progressing =
     phase === "connecting" ||
     phase === "reconnecting" ||

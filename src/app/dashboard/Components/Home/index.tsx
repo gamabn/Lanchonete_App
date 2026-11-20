@@ -1,8 +1,12 @@
 "use client";
-import { OrderDestination, OrderAmounts } from "@/app/components/OrderFulfillment";
+import {
+  OrderDestination,
+  OrderAmounts,
+} from "@/app/components/OrderFulfillment";
 import { formatSales } from "@/app/util/orderReceipt";
 import { orderPresentation } from "@/app/util/orderPresentation";
 import chatApi from "@/app/util/chatApi";
+import { AtivarWebPush } from "@/app/components/ativar-webPush";
 
 import {
   useCallback,
@@ -367,7 +371,12 @@ export function Home({ data }: { data: VendasProps[] }) {
           status: "enviado",
         });
 
-        toast.success(orders.find(order => order.order_id === orderId)?.fulfillment_type === "PICKUP" ? "Pedido pronto para retirada!" : "Pedido enviado com sucesso!");
+        toast.success(
+          orders.find((order) => order.order_id === orderId)
+            ?.fulfillment_type === "PICKUP"
+            ? "Pedido pronto para retirada!"
+            : "Pedido enviado com sucesso!",
+        );
       } else {
         await chatApi.delete(`/chat/${orderId}`);
 
@@ -429,6 +438,8 @@ export function Home({ data }: { data: VendasProps[] }) {
             }}
           />
         )}
+
+        <AtivarWebPush />
 
         {/* CABEÇALHO */}
         <header className="mb-8">
@@ -621,7 +632,11 @@ export function Home({ data }: { data: VendasProps[] }) {
                             : "bg-blue-100 text-blue-700"
                         }`}
                       >
-                        {isPending ? "Pendente" : orderPresentation(pedido).pickup ? "Pronto para retirada" : "Enviado"}
+                        {isPending
+                          ? "Pendente"
+                          : orderPresentation(pedido).pickup
+                            ? "Pronto para retirada"
+                            : "Enviado"}
                       </span>
                     </div>
 
@@ -787,7 +802,9 @@ export function Home({ data }: { data: VendasProps[] }) {
                       ) : isPending ? (
                         <>
                           <Send size={18} />
-                          {orderPresentation(pedido).pickup ? "Marcar pronto para retirada" : "Enviar pedido"}
+                          {orderPresentation(pedido).pickup
+                            ? "Marcar pronto para retirada"
+                            : "Enviar pedido"}
                         </>
                       ) : (
                         <>
