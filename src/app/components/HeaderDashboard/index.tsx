@@ -32,7 +32,7 @@ export function HeaderDashboard({ children }: { children: React.ReactNode }) {
 
     async function getStore() {
       try {
-        const res = await fetch(`/api/store/${lanchoneteProfile.id}`);
+        const res = await fetch(`/api/store/${lanchoneteProfile?.id}`);
 
         if (!res.ok) {
           throw new Error("Erro ao buscar status da lanchonete.");
