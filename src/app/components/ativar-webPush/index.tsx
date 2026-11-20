@@ -107,11 +107,11 @@ export function AtivarWebPush() {
         );
       }
 
-      // console.log("✅ Inscrição salva no PostgreSQL:", resultado);
+      console.log("✅ Inscrição salva no PostgreSQL:", resultado);
 
       setMensagem("✅ Web Push ativado e salvo no banco!");
 
-      //  console.log("🔔 INSCRIÇÃO WEB PUSH:", JSON.stringify(dados));
+      console.log("🔔 INSCRIÇÃO WEB PUSH:", JSON.stringify(dados));
 
       setAtivado(true);
       setMensagem("✅ Web Push registrado com sucesso!");
@@ -131,18 +131,14 @@ export function AtivarWebPush() {
         <button
           type="button"
           onClick={ativar}
-          className="rounded-lg border p-3"
+          className="rounded-lg border p-3 cursor-pointer"
         >
           🔔 Ativar notificações
         </button>
       )}
       {/*}  <p>{mensagem}</p>*/}
 
-      {inscricao && (
-        <p className="text-green-500">
-          Inscrição criada e pronta para o teste de envio.
-        </p>
-      )}
+      {inscricao && <p className="text-green-500">Inscrição criada.</p>}
     </div>
   );
 }

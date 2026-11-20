@@ -15,8 +15,8 @@ export async function POST(request: NextRequest) {
 
     const subscription = await request.json();
 
-    const apiUrl = process.env.NEXT_PUBLIC_API_LOCAL;
-
+    // const apiUrl = process.env.NEXT_PUBLIC_API_LOCAL;
+    const apiUrl = process.env.NEXT_PUBLIC_API_RENDER;
     if (!apiUrl) {
       return NextResponse.json(
         { error: "URL do backend não configurada." },
