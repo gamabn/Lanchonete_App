@@ -475,7 +475,7 @@ export function Home({ data }: { data: VendasProps[] }) {
             <div className="self-start">
               <ShareButton
                 title="Cardápio da lanchonete"
-                url={`http://localhost:3000/clients/${lanchoneteProfile?.id}`}
+                url={`https://lanchonete-app-eta.vercel.app/clients/${lanchoneteProfile?.id}`}
               />
             </div>
           </div>
