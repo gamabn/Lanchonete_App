@@ -30,9 +30,11 @@ const labels: Record<WhatsAppState, string> = {
 };
 
 const blockedMessages: Record<ActionBlockReason, string> = {
-  disposed: "O controlador deste painel foi encerrado. Recarregue a página para continuar.",
+  disposed:
+    "O controlador deste painel foi encerrado. Recarregue a página para continuar.",
   expired: "Sua sessão expirou. Entre novamente para continuar.",
-  hidden: "A ação foi bloqueada porque a atualização está pausada. Atualize o status para retomar.",
+  hidden:
+    "A ação foi bloqueada porque a atualização está pausada. Atualize o status para retomar.",
   busy: "Já existe uma operação em andamento. Aguarde sua conclusão e tente novamente.",
 };
 
@@ -52,18 +54,22 @@ export function WhatsAppPanel({
   useEffect(() => {
     setView(initialConnectionView());
     setInteractionError(null);
-    const current: WhatsAppConnectionController = new WhatsAppConnectionController(
-      ownerId,
-      (next) => {
-        if (controller.current !== current) {
-          console.log("[whatsapp:H12.1] panel.stale-update", current.diagnostics());
-          return;
-        }
-        setView(next);
-      },
-      () => expiredCallback.current(),
-      { visible: !document.hidden },
-    );
+    const current: WhatsAppConnectionController =
+      new WhatsAppConnectionController(
+        ownerId,
+        (next) => {
+          if (controller.current !== current) {
+            console.log(
+              "[whatsapp:H12.1] panel.stale-update",
+              current.diagnostics(),
+            );
+            return;
+          }
+          setView(next);
+        },
+        () => expiredCallback.current(),
+        { visible: !document.hidden },
+      );
     controller.current = current;
     console.log("[whatsapp:H12.1] panel.mount", current.diagnostics());
     const visibility = () => {
@@ -74,14 +80,15 @@ export function WhatsAppPanel({
     void current.refresh();
     return () => {
       console.log("[whatsapp:H12.1] panel.cleanup", {
-        isCurrent: controller.current === current, ...current.diagnostics(),
+        isCurrent: controller.current === current,
+        ...current.diagnostics(),
       });
       document.removeEventListener("visibilitychange", visibility);
       current.dispose();
       if (controller.current === current) controller.current = null;
     };
   }, [ownerId]);
-  
+
   const geometry = useMemo(() => {
     if (!view.qr?.qr) return null;
     try {
@@ -94,7 +101,6 @@ export function WhatsAppPanel({
   const phase = view.connection?.status;
 
   const connected = phase === "connected",
-
     legacy = phase === "legacy_active";
 
   const progressing =
@@ -109,27 +115,47 @@ export function WhatsAppPanel({
         ? "status_loading"
         : undefined;
   const disabled = Boolean(blockedReason);
-  const renderedControllerId = controller.current?.diagnostics().instanceId ?? null;
-  const run = async (action: "connect" | "disconnect" | "refresh", buttonDisabled: boolean) => {
+  const renderedControllerId =
+    controller.current?.diagnostics().instanceId ?? null;
+  const run = async (
+    action: "connect" | "disconnect" | "refresh",
+    buttonDisabled: boolean,
+  ) => {
     const current = controller.current;
     // Temporary browser trace: primitive state only; do not log ownerId, QR, JWT or requests.
     console.log("[whatsapp:H12.1] panel.click", {
-      action, buttonDisabled, renderedControllerId,
+      action,
+      buttonDisabled,
+      renderedControllerId,
       hasController: Boolean(current),
-      react: { loading: view.loading, expired: view.expired, paused: view.paused, busy: view.busy },
+      react: {
+        loading: view.loading,
+        expired: view.expired,
+        paused: view.paused,
+        busy: view.busy,
+      },
       controller: current?.diagnostics() ?? null,
     });
     setInteractionError(null);
     if (!current) {
-      console.log("[whatsapp:H12.1] panel.blocked", { action, reason: "missing_controller" });
-      setInteractionError("O painel ainda não está pronto. Recarregue a página e tente novamente.");
+      console.log("[whatsapp:H12.1] panel.blocked", {
+        action,
+        reason: "missing_controller",
+      });
+      setInteractionError(
+        "O painel ainda não está pronto. Recarregue a página e tente novamente.",
+      );
       return;
     }
     const reportBlock = (reason: ActionBlockReason) => {
       if (controller.current !== current) return;
       // Reconcile a stale React view with the exact controller that rejected this click.
       const latest = current.getView();
-      setView(current.diagnostics().disposed ? { ...latest, loading: false, busy: null } : latest);
+      setView(
+        current.diagnostics().disposed
+          ? { ...latest, loading: false, busy: null }
+          : latest,
+      );
       setInteractionError(blockedMessages[reason]);
     };
     try {
@@ -137,9 +163,19 @@ export function WhatsAppPanel({
       current.setVisible(true, false);
       if (action === "refresh") {
         const state = current.diagnostics();
-        const reason = state.disposed ? "disposed" : state.expired ? "expired" : state.busy ? "busy" : null;
+        const reason = state.disposed
+          ? "disposed"
+          : state.expired
+            ? "expired"
+            : state.busy
+              ? "busy"
+              : null;
         if (reason) {
-          console.log("[whatsapp:H12.1] panel.blocked", { action, reason, ...state });
+          console.log("[whatsapp:H12.1] panel.blocked", {
+            action,
+            reason,
+            ...state,
+          });
           reportBlock(reason);
           return;
         }
@@ -149,9 +185,14 @@ export function WhatsAppPanel({
         if (result?.accepted === false) reportBlock(result.reason);
       }
     } catch {
-      console.log("[whatsapp:H12.1] panel.action-error", { action, ...current.diagnostics() });
+      console.log("[whatsapp:H12.1] panel.action-error", {
+        action,
+        ...current.diagnostics(),
+      });
       if (controller.current === current)
-        setInteractionError("Não foi possível executar a ação no painel. Recarregue a página e tente novamente.");
+        setInteractionError(
+          "Não foi possível executar a ação no painel. Recarregue a página e tente novamente.",
+        );
     }
   };
   const disconnect = () => {
@@ -164,7 +205,7 @@ export function WhatsAppPanel({
   };
 
   return (
-    <main className="min-h-full bg-slate-50 px-4 py-8 sm:px-6 lg:px-10">
+    <main className="min-h-screen bg-slate-50 px-4 py-8 sm:px-6 lg:px-10">
       <div className="mx-auto max-w-4xl">
         <header className="mb-7">
           <div className="mb-3 flex items-center gap-2 text-sm font-medium text-slate-500">
@@ -321,7 +362,9 @@ export function WhatsAppPanel({
                       : undefined)
               }
               disabled={disabled || connected || progressing || legacy}
-              onClick={(event) => void run("connect", event.currentTarget.disabled)}
+              onClick={(event) =>
+                void run("connect", event.currentTarget.disabled)
+              }
               className="inline-flex items-center gap-2 rounded-xl bg-orange-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Smartphone size={18} />
@@ -355,7 +398,9 @@ export function WhatsAppPanel({
               aria-label="Atualizar status"
               data-disabled-reason={blockedReason}
               disabled={disabled}
-              onClick={(event) => void run("refresh", event.currentTarget.disabled)}
+              onClick={(event) =>
+                void run("refresh", event.currentTarget.disabled)
+              }
               className="inline-flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
             >
               <RefreshCw size={17} />

@@ -200,7 +200,7 @@ export function Home({ data }: { data: VendasProps[] }) {
   const activateSound = async () => {
     try {
       if (!audioRef.current) {
-        audioRef.current = new Audio("/audio/uber.mp3");
+        audioRef.current = new Audio("/audio/Best-sms.mp3");
       }
 
       const audio = audioRef.current;
