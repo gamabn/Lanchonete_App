@@ -45,7 +45,7 @@ export function LoginForm() {
     return (
       <div className="h-screen flex items-center justify-center">
         <span>
-          <Loader size={25} color="orange" className="animate-spin" />
+          <Loader size={40} color="orange" className="animate-spin" />
         </span>
       </div>
     );

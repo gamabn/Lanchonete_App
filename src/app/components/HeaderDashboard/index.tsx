@@ -105,37 +105,37 @@ export function HeaderDashboard({ children }: { children: React.ReactNode }) {
     {
       href: "/dashboard",
       label: "Início",
-      icon: <House size={25} />,
+      icon: <House size={30} />,
     },
     {
       href: "/dashboard/product",
       label: "Produtos",
-      icon: <FiShoppingBag size={25} />,
+      icon: <FiShoppingBag size={30} />,
     },
     {
       href: "/dashboard/financas",
       label: "Finanças",
-      icon: <ChartNoAxesCombined size={25} />,
+      icon: <ChartNoAxesCombined size={30} />,
     },
     {
       href: "/dashboard/message",
       label: "Mensagens",
-      icon: <MessageCircleMore size={25} />,
+      icon: <MessageCircleMore size={30} />,
     },
     {
       href: "/dashboard/profile",
       label: "Perfil",
-      icon: <UserRound size={25} />,
+      icon: <UserRound size={30} />,
     },
     {
       href: "/dashboard/whatsapp",
       label: "WhatsApp",
-      icon: <Smartphone size={25} />,
+      icon: <Smartphone size={30} />,
     },
     {
       href: "/dashboard/editProduct",
       label: "Editar produtos",
-      icon: <FilePenLine size={25} />,
+      icon: <FilePenLine size={30} />,
     },
   ];
 
@@ -228,7 +228,7 @@ export function HeaderDashboard({ children }: { children: React.ReactNode }) {
         aria-label="Menu de navegação"
         aria-hidden={!active}
         className={`fixed top-0 left-0 z-50 h-screen
-        w-20 md:w-[120px] bg-black text-white
+        w-25 md:w-[120px] bg-black text-white
         shadow-xl transform transition-transform duration-300 ease-in-out
         ${active ? "translate-x-0" : "-translate-x-full"}`}
       >
@@ -297,7 +297,7 @@ export function HeaderDashboard({ children }: { children: React.ReactNode }) {
               aria-label="Sair"
               className="mt-3 hover:text-orange-500 transition"
             >
-              <FiLogOut size={25} color="#ef8300" />
+              <FiLogOut size={30} color="#ef8300" />
             </button>
           </div>
         </div>
