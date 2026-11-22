@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useContext, useRef, useState } from "react";
 import { Context } from "@/app/Context";
+import { Loader } from "lucide-react";
 
 export function LoginForm() {
   const router = useRouter();
@@ -29,12 +30,25 @@ export function LoginForm() {
       router.refresh();
       router.replace("/dashboard");
     } catch (err) {
-      setError(err instanceof Error && err.name !== "TimeoutError"
-        ? err.message : "O login demorou demais. Tente novamente.");
+      setError(
+        err instanceof Error && err.name !== "TimeoutError"
+          ? err.message
+          : "O login demorou demais. Tente novamente.",
+      );
     } finally {
       submitting.current = false;
-      setLoading(false);
+      //setLoading(false);
     }
+  }
+
+  if (loading) {
+    return (
+      <div className="h-screen flex items-center justify-center">
+        <span>
+          <Loader size={25} color="orange" className="animate-spin" />
+        </span>
+      </div>
+    );
   }
 
   return (
@@ -70,7 +84,11 @@ export function LoginForm() {
         {loading ? "Carregando..." : "Entrar"}
       </button>
 
-      {error && <p role="alert" className="text-red-500">{error}</p>}
+      {error && (
+        <p role="alert" className="text-red-500">
+          {error}
+        </p>
+      )}
 
       <Link href="/auth/cadastro" className="text-blue-800 text-sm text-center">
         Não tem cadastro? Cadastre-se

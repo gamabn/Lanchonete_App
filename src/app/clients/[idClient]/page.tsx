@@ -24,12 +24,23 @@ import {
   XCircle,
 } from "lucide-react";
 
-import { Product, CartProduct, LanchoneteProfile } from "@/app/models/interface";
+import {
+  Product,
+  CartProduct,
+  LanchoneteProfile,
+} from "@/app/models/interface";
 import { formatReal } from "@/app/money";
 import api from "@/app/util/api";
 import socket from "@/app/components/Socket";
-import { customerOrderKey, watchCustomerSessionChanges } from "@/app/util/customerStorage";
-import { ALL_CATEGORIES, filterMenuProducts, menuCategories } from "./menuCategories";
+import {
+  customerOrderKey,
+  watchCustomerSessionChanges,
+} from "@/app/util/customerStorage";
+import {
+  ALL_CATEGORIES,
+  filterMenuProducts,
+  menuCategories,
+} from "./menuCategories";
 import ProductConfigurationDialog from "./ProductConfigurationDialog";
 import { cartLineKey, restoreCart } from "@/app/util/checkout";
 import { joinChat, leaveChat } from "@/app/util/chatRooms";
@@ -58,12 +69,20 @@ export default function Client() {
   const [produtos, setProdutos] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [search, setSearch] = useState("");
-  const [categorySelection, setCategorySelection] = useState({ restaurantId: idClient, key: ALL_CATEGORIES });
+  const [categorySelection, setCategorySelection] = useState({
+    restaurantId: idClient,
+    key: ALL_CATEGORIES,
+  });
   const [configuring, setConfiguring] = useState<Product | null>(null);
 
   const [isOpen, setIsOpen] = useState(false);
-  const [chatContext, setChatContext] = useState<{ restaurantId: string; chatId: string; credential: string } | null>(null);
-  const chatId = chatContext?.restaurantId === idClient ? chatContext.chatId : null;
+  const [chatContext, setChatContext] = useState<{
+    restaurantId: string;
+    chatId: string;
+    credential: string;
+  } | null>(null);
+  const chatId =
+    chatContext?.restaurantId === idClient ? chatContext.chatId : null;
   const [messages, setMessages] = useState<Message[]>([]);
 
   const [store, setStore] = useState<LanchoneteProfile>({
@@ -102,9 +121,14 @@ export default function Client() {
       const storedProducts = localStorage.getItem(CART_KEY);
       const storedQuantities = localStorage.getItem(QUANTITY_KEY);
 
-      const { products, counts } = restoreCart(storedProducts, storedQuantities, idClient);
+      const { products, counts } = restoreCart(
+        storedProducts,
+        storedQuantities,
+        idClient,
+      );
       const restoredCart: CartItem[] = products.map((product) => ({
-        ...product, quantity: counts[cartLineKey(product)],
+        ...product,
+        quantity: counts[cartLineKey(product)],
       }));
 
       setCart(restoredCart);
@@ -136,7 +160,8 @@ export default function Client() {
         const storeData: LanchoneteProfile = await storeResponse.json();
 
         const productsData: Product[] = await productsResponse.json();
-
+        console.log("Carregando produto..", productsData);
+        console.log("carregando produtos2 ...", productsResponse);
         if (cancelled) return;
 
         setStore(storeData);
@@ -175,10 +200,14 @@ export default function Client() {
     };
   }, []);
 
-  useEffect(() => watchCustomerSessionChanges(idClient, () => {
-    socket.disconnect();
-    window.location.reload();
-  }), [idClient]);
+  useEffect(
+    () =>
+      watchCustomerSessionChanges(idClient, () => {
+        socket.disconnect();
+        window.location.reload();
+      }),
+    [idClient],
+  );
 
   // Recover only the order/credential pair captured for this restaurant.
   useEffect(() => {
@@ -193,23 +222,39 @@ export default function Client() {
         const credential = localStorage.getItem(chatCredentialKey(idClient));
         if (!savedOrder?.trim() || !credential?.trim()) return;
         let orderId: unknown;
-        try { orderId = JSON.parse(savedOrder); }
-        catch { orderId = savedOrder; }
+        try {
+          orderId = JSON.parse(savedOrder);
+        } catch {
+          orderId = savedOrder;
+        }
         if (typeof orderId !== "string" || !orderId.trim()) return;
 
-        const response = await chatApi.get(`/chat/${encodeURIComponent(orderId.trim())}`, {
-          signal: controller.signal,
-          headers: { "x-chat-credential": credential },
-        });
-        if (!controller.signal.aborted && typeof response.data?.chat_id === "string" && response.data.chat_id) {
-          setChatContext({ restaurantId: idClient, chatId: response.data.chat_id, credential });
+        const response = await chatApi.get(
+          `/chat/${encodeURIComponent(orderId.trim())}`,
+          {
+            signal: controller.signal,
+            headers: { "x-chat-credential": credential },
+          },
+        );
+        if (
+          !controller.signal.aborted &&
+          typeof response.data?.chat_id === "string" &&
+          response.data.chat_id
+        ) {
+          setChatContext({
+            restaurantId: idClient,
+            chatId: response.data.chat_id,
+            credential,
+          });
         }
       } catch (error) {
         if (controller.signal.aborted || isCancel(error)) return;
         const status = isAxiosError(error) ? error.response?.status : undefined;
         if (status === 401 || status === 403) return;
         // Axios errors contain request headers: never log the error object.
-        console.error("Não foi possível recuperar o chat do pedido.", { status: status ?? "network-or-unexpected" });
+        console.error("Não foi possível recuperar o chat do pedido.", {
+          status: status ?? "network-or-unexpected",
+        });
       }
     }
 
@@ -225,16 +270,21 @@ export default function Client() {
     const credential = chatContext.credential;
     async function loadMessages() {
       try {
-        const response = await chatApi.get<Message[]>(`/message/${encodeURIComponent(currentChatId)}`, {
-          signal: controller.signal,
-          headers: { "x-chat-credential": credential },
-        });
+        const response = await chatApi.get<Message[]>(
+          `/message/${encodeURIComponent(currentChatId)}`,
+          {
+            signal: controller.signal,
+            headers: { "x-chat-credential": credential },
+          },
+        );
         if (!controller.signal.aborted) setMessages(response.data);
       } catch (error) {
         if (controller.signal.aborted || isCancel(error)) return;
         const status = isAxiosError(error) ? error.response?.status : undefined;
         if (status === 401 || status === 403) return;
-        console.error("Não foi possível carregar as mensagens do chat.", { status: status ?? "network-or-unexpected" });
+        console.error("Não foi possível carregar as mensagens do chat.", {
+          status: status ?? "network-or-unexpected",
+        });
       }
     }
     void loadMessages();
@@ -279,7 +329,11 @@ export default function Client() {
       setConfiguring(product);
       return;
     }
-    try { addCartProduct(product); } catch (error) { toast.error((error as Error).message); }
+    try {
+      addCartProduct(product);
+    } catch (error) {
+      toast.error((error as Error).message);
+    }
   }
 
   function addCartProduct(product: CartProduct) {
@@ -322,10 +376,15 @@ export default function Client() {
     saveCart(updatedCart);
   }
 
-  const categories = useMemo(() => menuCategories(produtos, idClient), [produtos, idClient]);
-  const selectedCategory = categorySelection.restaurantId === idClient &&
-    categories.some(category => category.key === categorySelection.key)
-    ? categorySelection.key : ALL_CATEGORIES;
+  const categories = useMemo(
+    () => menuCategories(produtos, idClient),
+    [produtos, idClient],
+  );
+  const selectedCategory =
+    categorySelection.restaurantId === idClient &&
+    categories.some((category) => category.key === categorySelection.key)
+      ? categorySelection.key
+      : ALL_CATEGORIES;
   const filteredProducts = useMemo(
     () => filterMenuProducts(produtos, idClient, selectedCategory, search),
     [produtos, idClient, selectedCategory, search],
@@ -530,15 +589,27 @@ export default function Client() {
           </div>
 
           {isOpen && (
-            <nav aria-label="Categorias do cardápio" className="mt-5 flex max-w-full gap-2 overflow-x-auto pb-3">
-              {categories.map(category => (
-                <button key={category.key} type="button" aria-pressed={selectedCategory === category.key}
-                  onClick={() => setCategorySelection({ restaurantId: idClient, key: category.key })}
+            <nav
+              aria-label="Categorias do cardápio"
+              className="mt-5 flex max-w-full gap-2 overflow-x-auto pb-3"
+            >
+              {categories.map((category) => (
+                <button
+                  key={category.key}
+                  type="button"
+                  aria-pressed={selectedCategory === category.key}
+                  onClick={() =>
+                    setCategorySelection({
+                      restaurantId: idClient,
+                      key: category.key,
+                    })
+                  }
                   className={`shrink-0 whitespace-nowrap rounded-full border px-4 py-2.5 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 ${
                     selectedCategory === category.key
                       ? "border-orange-500 bg-orange-500 text-white"
                       : "border-slate-200 bg-white text-slate-700 hover:border-orange-300 hover:bg-orange-50"
-                  }`}>
+                  }`}
+                >
                   {category.label}
                 </button>
               ))}
@@ -606,12 +677,16 @@ export default function Client() {
 
                       <div className="mt-auto pt-3">
                         <p className="mb-3 text-base font-bold text-orange-600 sm:text-lg">
-                          {product.has_variants && "A partir de "}{formatarPreco(product.price)}
+                          {product.has_variants && "A partir de "}
+                          {formatarPreco(product.price)}
                         </p>
 
                         {product.has_variants ? (
-                          <button type="button" onClick={() => addProduct(product)}
-                            className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-orange-500 px-3 text-sm font-semibold text-white hover:bg-orange-600">
+                          <button
+                            type="button"
+                            onClick={() => addProduct(product)}
+                            className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-orange-500 px-3 text-sm font-semibold text-white hover:bg-orange-600"
+                          >
                             Escolher tamanho e opções
                           </button>
                         ) : quantity === 0 ? (
@@ -659,8 +734,13 @@ export default function Client() {
       </div>
 
       {configuring && (
-        <ProductConfigurationDialog key={configuring.id} product={configuring} restaurantId={idClient}
-          onClose={() => setConfiguring(null)} onAdd={addCartProduct} />
+        <ProductConfigurationDialog
+          key={configuring.id}
+          product={configuring}
+          restaurantId={idClient}
+          onClose={() => setConfiguring(null)}
+          onAdd={addCartProduct}
+        />
       )}
 
       {/* CARRINHO FIXO */}

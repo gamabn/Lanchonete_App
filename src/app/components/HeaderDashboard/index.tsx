@@ -140,7 +140,7 @@ export function HeaderDashboard({ children }: { children: React.ReactNode }) {
   ];
 
   return (
-    <div className="flex flex-col h-screen w-full overflow-hidden">
+    <div className="flex flex-col  min-h-screen w-full overflow-hidden">
       {/* HEADER */}
       <header className="relative z-30 w-full h-20 shrink-0 bg-orange-600 shadow-sm px-3">
         <div className="w-full h-full flex items-center justify-between max-w-7xl mx-auto gap-3">
@@ -204,9 +204,9 @@ export function HeaderDashboard({ children }: { children: React.ReactNode }) {
               onClick={() => logout()}
               aria-label="Sair"
               title="Sair"
-              className="flex hover:bg-gray-700 rounded-full p-2 items-center justify-center transition"
+              className="flex bg-black hover:bg-gray-700 rounded-full p-2 items-center justify-center transition"
             >
-              <FiLogOut size={25} color="black" />
+              <FiLogOut size={25} color="red" />
             </button>
           </div>
         </div>
@@ -304,9 +304,7 @@ export function HeaderDashboard({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* CONTEÚDO DO DASHBOARD */}
-      <main className="flex-1 flex flex-col min-h-0 overflow-y-auto">
-        {children}
-      </main>
+      <main className="flex-1 min-w-0 py-3">{children}</main>
     </div>
   );
 }
