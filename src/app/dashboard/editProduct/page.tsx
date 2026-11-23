@@ -486,7 +486,7 @@ export default function EditProduct() {
     "w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition-all placeholder:text-slate-400 focus:border-orange-400 focus:ring-4 focus:ring-orange-100";
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-8 sm:px-6 lg:px-10">
+    <main className="min-h-screen bg-slate-50 px-4 py-8 sm:px-6 lg:px-10 text-gray-700">
       {unsaved.dialog}
       <div className="mx-auto max-w-6xl">
         {/* CABEÇALHO */}

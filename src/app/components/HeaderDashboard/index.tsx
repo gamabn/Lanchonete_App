@@ -13,6 +13,10 @@ import {
   Smartphone,
   X,
 } from "lucide-react";
+import {
+  subscribeOrders,
+  type MessageNotification,
+} from "@/app/util/ordersSocket";
 
 import { Context } from "@/app/Context";
 import socket from "@/app/components/Socket";
@@ -24,6 +28,28 @@ export function HeaderDashboard({ children }: { children: React.ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
 
+  // Escuta notificações de mensagens em todas as páginas do dashboard
+  useEffect(() => {
+    if (!lanchoneteProfile?.id) return;
+
+    function handleMessageNotification(notification: MessageNotification) {
+      console.log("💬 NOVA MENSAGEM RECEBIDA:", notification);
+
+      window.dispatchEvent(
+        new CustomEvent<MessageNotification>("dashboard:new-message", {
+          detail: notification,
+        }),
+      );
+    }
+
+    return subscribeOrders(
+      lanchoneteProfile.id,
+      () => {}, // Não altera o recebimento de pedidos
+      undefined,
+      undefined,
+      handleMessageNotification,
+    );
+  }, [lanchoneteProfile?.id]);
   // Busca o status da lanchonete quando o perfil estiver disponível
   useEffect(() => {
     if (!lanchoneteProfile?.id) return;

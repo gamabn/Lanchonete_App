@@ -44,7 +44,7 @@ import type { VendasProps } from "@/app/models/interface";
 import { Delete } from "../../Delete";
 import { ShareButton } from "../shareButton";
 import ordersAdminApi from "@/app/util/ordersAdminApi";
-//import { subscribeOrders } from "@/app/util/ordersSocket";
+import { useSound } from "@/app/Context/SoundContext";
 import {
   subscribeOrders,
   type OrderStatusUpdate,
@@ -109,14 +109,15 @@ export function Home({ data }: { data: VendasProps[] }) {
 
   const loadedChatOrders = useRef<Set<string>>(new Set());
 
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [soundEnabled, setSoundEnabled] = useState(false);
-
-  const soundEnabledRef = useRef(false);
+  //const audioRef = useRef<HTMLAudioElement | null>(null);
+  // const [soundEnabled, setSoundEnabled] = useState(false);
+  //const soundEnabledRef = useRef(false);
 
   const recentStatusUpdates = useRef<Map<string, OrderStatusUpdate>>(new Map());
 
   const recentNewOrders = useRef<Map<string, VendasProps>>(new Map());
+
+  const { soundEnabled, activateSound, playOrderSound } = useSound();
   // Sincroniza quando a prop data mudar
   useEffect(() => {
     const serverOrders = new Map(data.map((order) => [order.order_id, order]));
@@ -181,7 +182,8 @@ export function Home({ data }: { data: VendasProps[] }) {
   );
 
   // Som de novo pedido
-  const playSound = useCallback(async () => {
+  {
+    /*const playSound = useCallback(async () => {
     if (!soundEnabledRef.current || !audioRef.current) return;
 
     try {
@@ -195,9 +197,10 @@ export function Home({ data }: { data: VendasProps[] }) {
       soundEnabledRef.current = false;
       setSoundEnabled(false);
     }
-  }, []);
+  }, []);  */
+  }
 
-  const activateSound = async () => {
+  /* const activateSound = async () => {
     try {
       if (!audioRef.current) {
         audioRef.current = new Audio("/audio/Best-sms.mp3");
@@ -222,7 +225,7 @@ export function Home({ data }: { data: VendasProps[] }) {
       soundEnabledRef.current = false;
       setSoundEnabled(false);
     }
-  };
+  };*/
 
   const handleOrderUpdated = useCallback((update: OrderStatusUpdate) => {
     console.log("🔄 Atualizando pedido:", update);
@@ -279,7 +282,8 @@ export function Home({ data }: { data: VendasProps[] }) {
         return [newOrder, ...previous];
       });
 
-      playSound();
+      // playSound();
+      playOrderSound();
     }
 
     if (!lanchoneteProfile?.id) return;
@@ -289,7 +293,7 @@ export function Home({ data }: { data: VendasProps[] }) {
       handleOrderUpdated,
       syncOrders,
     );
-  }, [playSound, lanchoneteProfile?.id, handleOrderUpdated, syncOrders]);
+  }, [playOrderSound, lanchoneteProfile?.id, handleOrderUpdated, syncOrders]);
 
   // Carrega as mensagens dos pedidos ativos
   useEffect(() => {

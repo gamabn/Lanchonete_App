@@ -8,11 +8,20 @@ export interface OrderStatusUpdate {
   // onReconnect?: () => void
 }
 
+export interface MessageNotification {
+  chat_id: string;
+  order_id: string;
+  message_id: string;
+  sender_name: string;
+  message: string;
+}
+
 export function subscribeOrders(
   restaurantId: string,
   receive: (order: VendasProps) => void,
   onStatusUpdate?: (update: OrderStatusUpdate) => void,
   onReconnect?: () => void,
+  onMessageNotification?: (notification: MessageNotification) => void,
 ) {
   if (!backendUrl) return () => {};
 
@@ -114,6 +123,9 @@ export function subscribeOrders(
   socket.on("newOrder", onOrder);
   socket.on("orderUpdated", onOrderUpdated);
 
+  if (onMessageNotification) {
+    socket.on("newMessageNotification", onMessageNotification);
+  }
   // socket.on("connect_error", reconnect);
   //  socket.on("disconnect", reconnect);
   socket.on("connect", onConnect);
@@ -135,6 +147,10 @@ export function subscribeOrders(
     socket.off("connect", onConnect);
     socket.off("connect_error", reconnect);
     socket.off("disconnect", onDisconnect);
+
+    if (onMessageNotification) {
+      socket.off("newMessageNotification", onMessageNotification);
+    }
 
     socket.disconnect();
   };

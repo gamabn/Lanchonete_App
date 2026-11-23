@@ -91,6 +91,7 @@ export function Chat({ chat }: { chat: ChatItem[] }) {
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
+
   useEffect(() => {
     setSelectedChat(null);
     setMessages([]);
@@ -184,26 +185,46 @@ export function Chat({ chat }: { chat: ChatItem[] }) {
 
   // Recebe mensagens em tempo real
   useEffect(() => {
-    if (!selectedChat?.chat_id || selectedChat.restaurant_id !== lanchoneteProfile?.id) return;
+    if (
+      !selectedChat?.chat_id ||
+      selectedChat.restaurant_id !== lanchoneteProfile?.id
+    )
+      return;
 
     const chatId = selectedChat.chat_id;
     let active = true;
     setCustomerTyping(false);
-    function onTyping(data: { chatId: string; sender_type: string; isTyping: boolean }) {
-      if (data.chatId === chatId && data.sender_type === "customer") setCustomerTyping(data.isTyping);
+    function onTyping(data: {
+      chatId: string;
+      sender_type: string;
+      isTyping: boolean;
+    }) {
+      if (data.chatId === chatId && data.sender_type === "customer")
+        setCustomerTyping(data.isTyping);
     }
     socket.on("typing", onTyping);
 
     function joinSelectedRoom() {
       joinChat(socket, chatId, () => {
-        void chatApi.get<Message[]>(`/message/${chatId}`).then(response => {
-          if (!active) return;
-          setMessages(previous => {
-            const merged = new Map(previous.map(message => [message.id, message]));
-            response.data.forEach(message => merged.set(message.id, message));
-            return [...merged.values()].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-          });
-        }).catch(() => toast.error("Não foi possível atualizar o histórico."));
+        void chatApi
+          .get<Message[]>(`/message/${chatId}`)
+          .then((response) => {
+            if (!active) return;
+            setMessages((previous) => {
+              const merged = new Map(
+                previous.map((message) => [message.id, message]),
+              );
+              response.data.forEach((message) =>
+                merged.set(message.id, message),
+              );
+              return [...merged.values()].sort(
+                (a, b) =>
+                  new Date(a.created_at).getTime() -
+                  new Date(b.created_at).getTime(),
+              );
+            });
+          })
+          .catch(() => toast.error("Não foi possível atualizar o histórico."));
       });
     }
 
@@ -571,7 +592,11 @@ export function Chat({ chat }: { chat: ChatItem[] }) {
                     </div>
                   )}
 
-                  {customerTyping && <p className="text-sm text-slate-500">Cliente digitando...</p>}
+                  {customerTyping && (
+                    <p className="text-sm text-slate-500">
+                      Cliente digitando...
+                    </p>
+                  )}
                   <div ref={messagesEndRef} />
                 </div>
 
@@ -581,7 +606,13 @@ export function Chat({ chat }: { chat: ChatItem[] }) {
                     <div className="flex-1">
                       <textarea
                         value={input}
-                        onChange={(e) => { setInput(e.target.value); socket.emit("typing", { chatId: selectedChat.chat_id, isTyping: e.target.value.trim().length > 0 }); }}
+                        onChange={(e) => {
+                          setInput(e.target.value);
+                          socket.emit("typing", {
+                            chatId: selectedChat.chat_id,
+                            isTyping: e.target.value.trim().length > 0,
+                          });
+                        }}
                         onKeyDown={(e) => {
                           if (e.key === "Enter" && !e.shiftKey) {
                             e.preventDefault();
