@@ -12,6 +12,7 @@ import { MdFileUpload } from "react-icons/md";
 import Image from "next/image";
 import { toast } from "react-toastify";
 import api from "@/app/util/api";
+import { Loader } from "lucide-react";
 
 const schema = z
   .object({
@@ -59,7 +60,7 @@ export default function Cadastro() {
     if (!image) {
       return setMessage("A imagem é obrigatoria");
     }
-
+    setLoading(true);
     try {
       const payload = new FormData();
       payload.append("name", data.name);
@@ -71,10 +72,14 @@ export default function Cadastro() {
       payload.append("email", data.email);
       payload.append("password", data.password);
       payload.append("file", image);
+
       await api.post("/user", payload);
+
       router.push("/auth/login");
     } catch (error) {
       console.log(error);
+      setMessage("Erro ao Cadastrar");
+      setLoading(false);
     }
   }
 
@@ -91,13 +96,13 @@ export default function Cadastro() {
     }
   };
   return (
-    <div className="w-full text-black font-normal ">
+    <div className="w-full bg-white text-black font-normal ">
       <Header />
       <h1 className="text-3xl font-bold m-6 text-center text-black">
         Cadastro
       </h1>
 
-      <div className="flex flex-col gap-4 shadow-xl w-full max-w-md m-auto bg-white shadow-black mb-4 rounded-xl p-5">
+      <div className="flex flex-col gap-4 shadow-xl w-full  m-auto  mb-4  p-5">
         <form onSubmit={handleSubmit(handleRegister)}>
           <label className="flex h-[180px] border  px-3 flex-col items-center justify-center w-full relative">
             <span>
@@ -240,15 +245,22 @@ export default function Cadastro() {
             <button
               type="submit"
               disabled={loading}
-              className="bg-blue-500 p-2 h-11 rounded-xl text-white font-bold"
+              className="bg-blue-500 p-2 flex items-center justify-center h-11 rounded-xl text-white font-bold"
             >
-              <span className={loading ? "inline-block" : "hidden"}>
-                <span
-                  className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent"
-                  aria-hidden="true"
+              {loading ? (
+                <Loader
+                  size={18}
+                  className="animate-spin flex items-center justify-center"
                 />
-              </span>
+              ) : (
+                "Cadastrar"
+              )}
             </button>
+            {message && (
+              <p className="text-red-500 flex items-center justify-center text-sm">
+                {message}
+              </p>
+            )}
           </div>
 
           <Link href="/auth/login">
