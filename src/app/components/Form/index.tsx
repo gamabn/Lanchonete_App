@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useContext, useRef, useState } from "react";
 import { Context } from "@/app/Context";
 import { Loader } from "lucide-react";
+import { InstallAppButton } from "../installButton";
 
 export function LoginForm() {
   const router = useRouter();
@@ -97,6 +98,8 @@ export function LoginForm() {
       <Link href="/auth/email" className="text-blue-800 text-sm text-center">
         Esqueceu a senha?
       </Link>
+
+      <InstallAppButton />
     </form>
   );
 }
