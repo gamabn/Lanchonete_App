@@ -248,10 +248,7 @@ export default function Cadastro() {
               className="bg-blue-500 p-2 flex items-center justify-center h-11 rounded-xl text-white font-bold"
             >
               {loading ? (
-                <Loader
-                  size={18}
-                  className="animate-spin flex items-center justify-center"
-                />
+                <Loader size={18} className="animate-spin " />
               ) : (
                 "Cadastrar"
               )}
