@@ -11,6 +11,7 @@ import {
   House,
   UserRound,
   Smartphone,
+  MapPinCheck,
   X,
 } from "lucide-react";
 import {
@@ -137,6 +138,11 @@ export function HeaderDashboard({ children }: { children: React.ReactNode }) {
       href: "/dashboard/product",
       label: "Produtos",
       icon: <FiShoppingBag size={30} />,
+    },
+    {
+      href: "/dashboard/bairros",
+      label: "Produtos",
+      icon: <MapPinCheck size={30} />,
     },
     {
       href: "/dashboard/financas",
