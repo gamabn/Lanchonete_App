@@ -26,7 +26,7 @@ export function SoundProvider({ children }: { children: React.ReactNode }) {
 
   const getOrderAudio = () => {
     if (!orderAudio.current) {
-      orderAudio.current = new Audio("/audio/Best-sms.mp3");
+      orderAudio.current = new Audio("/audio/Rocky-Balboa.mp3");
     }
     return orderAudio.current;
   };
