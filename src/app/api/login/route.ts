@@ -14,7 +14,11 @@ export async function POST(request: Request) {
       );
     }
 
-    const response = await api.post("/auth", { email, password }, { timeout: 10000 });
+    const response = await api.post(
+      "/auth",
+      { email, password },
+      { timeout: 10000 },
+    );
 
     if (!response.data?.token) {
       return NextResponse.json(
@@ -34,14 +38,30 @@ export async function POST(request: Request) {
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
     });
+
+    console.log("resposta do api comid:", response.data.id);
+
+    res.cookies.set("lanchoneteId", response.data.id, {
+      httpOnly: true,
+      path: "/",
+      maxAge: maxAgeSeconds,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+    });
+
     res.headers.set("Cache-Control", "no-store");
     return res;
   } catch (err) {
     const status = isAxiosError(err) ? err.response?.status : undefined;
     // The existing backend uses 400 for invalid credentials.
-    const invalidCredentials = status === 400 || status === 401 || status === 403;
+    const invalidCredentials =
+      status === 400 || status === 401 || status === 403;
     return NextResponse.json(
-      { message: invalidCredentials ? "Email ou senha inválidos." : "Serviço de login indisponível. Tente novamente." },
+      {
+        message: invalidCredentials
+          ? "Email ou senha inválidos."
+          : "Serviço de login indisponível. Tente novamente.",
+      },
       { status: invalidCredentials ? 401 : 503 },
     );
   }

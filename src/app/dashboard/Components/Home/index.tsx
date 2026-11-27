@@ -50,6 +50,7 @@ import {
   type OrderStatusUpdate,
 } from "@/app/util/ordersSocket";
 import { useRouter } from "next/navigation";
+
 // Valores da API em reais
 function formatCurrency(value: number | string): string {
   const number = Number(value);

@@ -29,12 +29,6 @@ export interface ApiUser {
   // adicione outros campos que sua API /me retorna
 }
 
-export type AuthStatus =
-  | "loading"
-  | "authenticated"
-  | "unauthenticated"
-  | "error";
-
 interface ModalProps {
   authStatus: AuthStatus;
   authError: string;
@@ -67,6 +61,13 @@ interface LanchoneteProps {
   phone: string;
 }
 
+export type AuthStatus =
+  | "loading"
+  | "authenticated"
+  | "unauthenticated"
+  | "expired"
+  | "error";
+
 export const Context = createContext({} as ModalProps);
 
 export function ContextProvider({ children }: { children: ReactNode }) {
@@ -86,11 +87,15 @@ export function ContextProvider({ children }: { children: ReactNode }) {
 
   // Every session transition invalidates all older profile responses, even if
   // abort arrives after their response has already been received.
+
   const revalidateAuth = useCallback(async () => {
     const version = ++authVersion.current;
+
     profileRequest.current?.abort();
+
     const controller = new AbortController();
     profileRequest.current = controller;
+
     setAuthStatus("loading");
     setAuthError("");
 
@@ -102,34 +107,72 @@ export function ContextProvider({ children }: { children: ReactNode }) {
           AbortSignal.timeout(15000),
         ]),
       });
+
       if (version !== authVersion.current) return false;
+
+      // Usuário não autenticado
       if (response.status === 401) {
         setUser(null);
         setLanchoneteProfile(null);
         setAuthStatus("unauthenticated");
         return false;
       }
-      if (!response.ok)
+
+      // Assinatura vencida ou inexistente
+      if (response.status === 403) {
+        const data = await response.json();
+
+        const expiredReasons = [
+          "trial_expired",
+          "payment_expired",
+          "inactive",
+          "no_subscription",
+        ];
+
+        if (expiredReasons.includes(data.reason)) {
+          setUser(null);
+          setLanchoneteProfile(null);
+          setAuthStatus("expired");
+
+          if (window.location.pathname !== "/expired") {
+            router.replace("/expired");
+          }
+
+          return false;
+        }
+
+        throw new Error(data.message || "Acesso não autorizado.");
+      }
+
+      if (!response.ok) {
         throw new Error(
           "Não foi possível validar sua sessão. Tente novamente.",
         );
+      }
+
       const data = await response.json();
+
       if (version !== authVersion.current) return false;
+
       setUser(data);
       setLanchoneteProfile(data);
       setAuthStatus("authenticated");
+
       return true;
     } catch (error) {
       if (version !== authVersion.current) return false;
+
       setAuthError(
         error instanceof Error && error.name !== "TimeoutError"
           ? error.message
           : "Não foi possível validar sua sessão. Tente novamente.",
       );
+
       setAuthStatus("error");
+
       return false;
     }
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     void revalidateAuth();
